@@ -863,6 +863,7 @@ const invoiceGenerator = {
         `;
         
         appState.currentInvoiceCustomer = b.customer_name.replace(/\s+/g, '-');
+        appState.currentInvoiceId = b.id;
         document.getElementById('invoiceTemplatePopup').innerHTML = invHtml;
         ui.openModal('invoiceModal');
     },
@@ -880,13 +881,30 @@ const invoiceGenerator = {
             margin:       0, // internal margin is already padding: 20mm
             filename:     `INV-L37-${cust}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true },
+            html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         }).from(paper).save().then(() => {
             // Restore visual layout styles
             paper.style.transform = oldTransform;
             paper.style.boxShadow = oldShadow;
         });
+    },
+    shareWhatsApp() {
+        const id = appState.currentInvoiceId;
+        if(!id) return;
+        const b = appState.bookings.find(x => x.id === id);
+        if(!b) return;
+        
+        let message = `*INVOICE L37 TRANS*\n`;
+        message += `ID: #${b.id.substring(0,8).toUpperCase()}\n`;
+        message += `Customer: ${b.customer_name}\n`;
+        message += `Unit: ${b.vehicle_name}\n`;
+        message += `Periode: ${new Date(b.start_date).toLocaleDateString('id-ID')} s/d ${new Date(b.end_date).toLocaleDateString('id-ID')}\n\n`;
+        message += `*Total Tagihan: ${ui.formatCurrency(b.total_bill)}*\n\n`;
+        message += `Terima kasih telah menggunakan layanan kami.`;
+        
+        const waLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+        window.open(waLink, '_blank');
     }
 }
 

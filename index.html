@@ -635,8 +635,9 @@
                     <div id="invoiceTemplatePopup"></div>
                 </div>
             </div>
-            <div class="invoice-footer-btn" style="padding: 12px 16px; border-top: 1px solid #e2e8f0; background:#fff; flex-shrink:0; z-index:10;">
-                <button class="btn btn-primary" style="width:100%; justify-content:center; padding:12px 16px;" onclick="invoiceGenerator.downloadPDF()"><i class='bx bxs-file-pdf'></i> Download PDF</button>
+            <div class="invoice-footer-btn" style="padding: 12px 16px; border-top: 1px solid #e2e8f0; background:#fff; flex-shrink:0; z-index:10; display:flex; gap:10px;">
+                <button class="btn" style="flex:1; justify-content:center; padding:12px; background:#25D366; color:white; font-weight:600;" onclick="invoiceGenerator.shareWhatsApp()"><i class='bx bxl-whatsapp' style="font-size:18px;"></i> Send WA</button>
+                <button class="btn btn-primary" style="flex:1; justify-content:center; padding:12px;" onclick="invoiceGenerator.downloadPDF()"><i class='bx bxs-file-pdf' style="font-size:18px;"></i> Save PDF</button>
             </div>
         </div>
     </div>
