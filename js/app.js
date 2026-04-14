@@ -909,43 +909,38 @@ const invoiceGenerator = {
     _generatePDFBlob() {
         return new Promise((resolve) => {
             const paper = document.querySelector('.invoice-print');
-            const wrapper = document.querySelector('.preview-wrapper');
-            const modalBody = document.querySelector('.invoice-scroll-body');
             const cust = appState.currentInvoiceCustomer || 'Guest';
 
-            // Backup styles
-            const oldTransform = paper.style.transform;
-            const oldShadow = paper.style.boxShadow;
-            const oldWidth = paper.style.width;
-            const oldWOverflow = wrapper.style.overflowX;
-            const oldMOverflow = modalBody.style.overflowY;
-
-            // Remove purely visual constraints
-            paper.style.transform = 'scale(1)';
-            paper.style.boxShadow = 'none';
-            paper.style.width = '210mm';
+            // Create a clean clone attached directly to document.body.
+            // This utterly bypasses ANY scroll limits from modals/wrappers (Fixes 'Terpotong').
+            const clone = paper.cloneNode(true);
+            clone.style.transform = 'scale(1)';
+            clone.style.boxShadow = 'none';
+            clone.style.position = 'absolute';
+            clone.style.top = '0';
+            clone.style.left = '0';
+            clone.style.zIndex = '-9999'; // Hide behind everything
+            clone.style.width = '210mm';
+            clone.style.minHeight = '297mm';
+            clone.style.padding = '20mm';
+            clone.style.margin = '0';
+            clone.style.background = '#fff';
+            clone.style.color = '#1e293b';
             
-            // Crucial: remove scrolling boundaries so html2canvas captures entire overflowed width
-            wrapper.style.overflowX = 'visible';
-            modalBody.style.overflowY = 'visible';
+            document.body.appendChild(clone);
 
             const opt = {
                 margin:       0,
                 filename:     `INV-L37-${cust}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024, scrollY: 0 }, 
+                image:        { type: 'jpeg', quality: 1.0 },
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 794 }, // Explicit A4 pixel width
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
             setTimeout(() => {
-                html2pdf().set(opt).from(paper).toPdf().output('blob').then(blob => {
-                    // Restore visuals
-                    paper.style.transform = oldTransform;
-                    paper.style.boxShadow = oldShadow;
-                    paper.style.width = oldWidth;
-                    wrapper.style.overflowX = oldWOverflow;
-                    modalBody.style.overflowY = oldMOverflow;
-                    
+                // toPdf() guarantees rendering canvas into PDF before retrieving the blob
+                html2pdf().set(opt).from(clone).toPdf().output('blob').then(blob => {
+                    document.body.removeChild(clone); // Cleanup
                     resolve({ blob, filename: opt.filename });
                 });
             }, 100);
