@@ -77,13 +77,13 @@ const ui = {
                 <span>Addons Gross (-):</span> <span>${ui.formatCurrency(b.addons || 0)}</span>
             </div>
             <div style='display:flex; justify-content:space-between; align-items:center; color:#64748b; font-size:13px; margin-bottom: 4px;'>
-                <span>Route Fee (-):</span> <span>${ui.formatCurrency(b.route_fee || 0)}</span>
+                <span>Route (x ${b.duration_days || 1} Days) (-):</span> <span>${ui.formatCurrency(b.route_fee || 0)}</span>
             </div>
             <div style='display:flex; justify-content:space-between; align-items:center; color:#64748b; font-size:13px; margin-bottom: 8px;'>
-                <span>Driver Fee (-):</span> <span>${ui.formatCurrency(b.driver_fee || 0)}</span>
+                <span>Driver (x ${b.duration_days || 1} Days) (-):</span> <span>${ui.formatCurrency(b.driver_fee || 0)}</span>
             </div>
             <div style='display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:8px 10px; border-radius:6px; font-weight:600; font-size:14px; border:1px solid #e2e8f0;'>
-                <span>Pure Rent (Sewa Mobil Saja):</span> <span>${ui.formatCurrency(grossRent)}</span>
+                <span>Pure Rent (Sewa x ${b.duration_days || 1} Days):</span> <span>${ui.formatCurrency(grossRent)}</span>
             </div>
 
             <hr style='border:1px dashed #cbd5e1; margin:12px 0'>
@@ -910,42 +910,166 @@ const invoiceGenerator = {
     },
     _generatePDFBlob() {
         return new Promise((resolve) => {
-            const paper = document.querySelector('.invoice-print');
+            const b = appState.bookings.find(x => x.id === appState.currentInvoiceId);
+            if(!b) return resolve(null);
+
             const cust = appState.currentInvoiceCustomer || 'Guest';
+            const cName = localStorage.getItem('settings_company') || 'L37 Trans';
+            const tagline = localStorage.getItem('settings_tagline') || 'Rent Car & Travel';
+            const phone = localStorage.getItem('settings_phone') || '+62 812-3456-7890';
+            const cAddress = localStorage.getItem('settings_address') || 'Jl. Vichy No. 98, Jakarta';
+            const bank = localStorage.getItem('settings_bank') || 'BCA: 1234567890 a.n L37 Trans';
+            const tnc = localStorage.getItem('settings_footer') || 'Thank You';
 
-            // Create a clean clone attached directly to document.body.
-            // This utterly bypasses ANY scroll limits from modals/wrappers (Fixes 'Terpotong').
-            const clone = paper.cloneNode(true);
-            clone.style.transform = 'scale(1)';
-            clone.style.boxShadow = 'none';
-            clone.style.position = 'absolute';
-            clone.style.top = '0';
-            clone.style.left = '0';
-            clone.style.zIndex = '-9999'; // Hide behind everything
-            clone.style.width = '210mm';
-            clone.style.minHeight = '297mm';
-            clone.style.padding = '20mm';
-            clone.style.margin = '0';
-            clone.style.background = '#fff';
-            clone.style.color = '#1e293b';
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+            // ── HEADER ──
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(24);
+            doc.setTextColor(15, 118, 110);
+            doc.text(cName, 20, 25);
             
-            document.body.appendChild(clone);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(100, 116, 139);
+            doc.text(tagline, 20, 31);
+            
+            doc.setFontSize(9);
+            doc.setTextColor(71, 85, 105);
+            doc.text(`Phone/WA: ${phone}`, 20, 37);
+            doc.text(`Location: ${cAddress}`, 20, 42);
 
-            const opt = {
-                margin:       0,
-                filename:     `INV-L37-${cust}.pdf`,
-                image:        { type: 'jpeg', quality: 1.0 },
-                html2canvas:  { scale: 2, useCORS: true, windowWidth: 794 }, // Explicit A4 pixel width
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
+            // Title Right
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(22);
+            doc.setTextColor(203, 213, 225);
+            doc.text("INVOICE", 190, 25, { align: 'right' });
+            
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(71, 85, 105);
+            doc.text(`ID: #${b.id.substring(0,8).toUpperCase()}`, 190, 31, { align: 'right' });
+            doc.text(`Date: ${new Date().toLocaleDateString('id-ID')}`, 190, 36, { align: 'right' });
 
-            setTimeout(() => {
-                // toPdf() guarantees rendering canvas into PDF before retrieving the blob
-                html2pdf().set(opt).from(clone).toPdf().output('blob').then(blob => {
-                    document.body.removeChild(clone); // Cleanup
-                    resolve({ blob, filename: opt.filename });
-                });
-            }, 100);
+            // Line Separator
+            doc.setDrawColor(15, 118, 110);
+            doc.setLineWidth(0.5);
+            doc.line(20, 48, 190, 48);
+
+            // ── CUSTOMER & VEHICLE BOXES ──
+            doc.setFillColor(248, 250, 252);
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.2);
+            doc.roundedRect(20, 56, 75, 25, 2, 2, 'FD');
+            doc.roundedRect(110, 56, 80, 25, 2, 2, 'FD');
+
+            // Left Box
+            doc.setFontSize(8);
+            doc.setTextColor(148, 163, 184);
+            doc.text("BILLED TO", 25, 63);
+            doc.setFontSize(12);
+            doc.setTextColor(30, 41, 59);
+            doc.setFont("helvetica", "bold");
+            doc.text(b.customer_name, 25, 71);
+
+            // Right Box
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(148, 163, 184);
+            doc.text("VEHICLE / BOOKING", 185, 63, { align: 'right' });
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(15, 118, 110);
+            doc.text(b.vehicle_name, 185, 71, { align: 'right' });
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(71, 85, 105);
+            doc.text(`Period: ${new Date(b.start_date).toLocaleDateString('id-ID')} - ${new Date(b.end_date).toLocaleDateString('id-ID')}`, 185, 77, { align: 'right' });
+
+            // ── TABLE LOGIC ──
+            const invType = document.getElementById('invoice_type') ? document.getElementById('invoice_type').value : 'exclude';
+            const days = (b.duration_days || 0).toFixed(1);
+            const driverFee = b.driver_fee || 0;
+            const routeFee = b.route_fee || 0;
+            const addons = b.addons || 0;
+            const baseRent = b.total_bill - driverFee - routeFee - addons;
+            const destText = b.trip_destination ? ` (${b.trip_destination})` : '';
+
+            let tableData = [];
+            if (invType === 'include') {
+                tableData.push([`Sewa Kendaraan + Driver + BBM/Tol + Area${destText}`, ui.formatCurrency(b.total_bill)]);
+            } else {
+                tableData.push([`Base Rent (${days} Days)`, ui.formatCurrency(baseRent)]);
+                if(driverFee > 0) tableData.push([`Driver Fee (${days} Days)`, ui.formatCurrency(driverFee)]);
+                if(routeFee > 0 || b.trip_destination) tableData.push([`Route Area Fee${destText}`, ui.formatCurrency(routeFee)]);
+                
+                if(b.addons_list && b.addons_list.length > 0) {
+                    b.addons_list.forEach(a => tableData.push([`Addon: ${a.desc}`, ui.formatCurrency(a.cost)]));
+                } else if(addons > 0) {
+                    tableData.push([`Addons: ${b.addons_desc || 'Extras'}`, ui.formatCurrency(addons)]);
+                }
+            }
+
+            // Draw AutoTable
+            doc.autoTable({
+                startY: 90,
+                head: [['DESCRIPTION', 'AMOUNT']],
+                body: tableData,
+                theme: 'grid',
+                headStyles: { fillColor: [248, 250, 252], textColor: [100, 116, 139], fontSize: 9, fontStyle: 'bold' },
+                bodyStyles: { textColor: [30, 41, 59], fontSize: 10, cellPadding: 6 },
+                columnStyles: {
+                    0: { halign: 'left' },
+                    1: { halign: 'right', fontStyle: 'bold' }
+                },
+                alternateRowStyles: { fillColor: [255, 255, 255] },
+                margin: { left: 20, right: 20 }
+            });
+
+            // ── TOTAL ROW ──
+            const finalY = doc.lastAutoTable.finalY;
+            doc.setFillColor(241, 245, 249);
+            doc.setDrawColor(203, 213, 225);
+            doc.rect(20, finalY, 170, 12, 'FD');
+            
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(30, 41, 59);
+            doc.text("GRAND TOTAL", 130, finalY + 8, { align: 'right' });
+            
+            doc.setTextColor(15, 118, 110);
+            doc.setFontSize(12);
+            doc.text(ui.formatCurrency(b.total_bill), 185, finalY + 8, { align: 'right' });
+
+            // ── PAYMENT INSTRUCTIONS ──
+            doc.setFillColor(224, 242, 254);
+            doc.setDrawColor(2, 132, 199);
+            doc.setLineWidth(1.5);
+            
+            const bankLines = doc.splitTextToSize(bank, 155);
+            const pboxY = finalY + 20;
+            const pboxHeight = 16 + (bankLines.length * 5);
+            
+            doc.rect(20, pboxY, 170, pboxHeight, 'F');
+            doc.line(20, pboxY, 20, pboxY + pboxHeight); // left blue strip
+            
+            doc.setFontSize(10);
+            doc.setTextColor(3, 105, 161);
+            doc.text("Payment Instructions", 26, pboxY + 7);
+            
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(15, 23, 42);
+            doc.text(bankLines, 26, pboxY + 14);
+
+            // ── FOOTER ──
+            doc.setFontSize(8);
+            doc.setTextColor(148, 163, 184);
+            doc.text(tnc, 105, 280, { align: 'center' });
+
+            const blob = doc.output('blob');
+            resolve({ blob, filename: `INV-L37-${cust}.pdf` });
         });
     },
     downloadPDF() {
