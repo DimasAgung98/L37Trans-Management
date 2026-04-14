@@ -868,40 +868,25 @@ const invoiceGenerator = {
     },
     downloadPDF() {
         const paper = document.querySelector('.invoice-print');
-        if(!paper) return;
         const cust = appState.currentInvoiceCustomer || 'Guest';
-        
-        // Save all current styles that mobile CSS may have overridden
-        const saved = {
-            transform: paper.style.transform,
-            transformOrigin: paper.style.transformOrigin,
-            boxShadow: paper.style.boxShadow,
-            width: paper.style.width,
-            minHeight: paper.style.minHeight,
-            marginBottom: paper.style.marginBottom
-        };
 
-        // Force full A4 rendering (override any mobile scale)
-        paper.style.cssText += ';transform:none !important;transform-origin:top left !important;box-shadow:none !important;width:210mm !important;min-height:297mm !important;margin-bottom:0 !important;';
+        // Remove scale and shadow before printing to generate pure A4
+        const oldTransform = paper.style.transform;
+        const oldShadow = paper.style.boxShadow;
+        paper.style.transform = 'scale(1)';
+        paper.style.boxShadow = 'none';
 
-        // Small delay to let browser repaint
-        setTimeout(() => {
-            html2pdf().set({
-                margin:       0,
-                filename:     `INV-L37-${cust}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, scrollY: 0, windowWidth: 794 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            }).from(paper).save().then(() => {
-                // Restore original styles
-                paper.style.transform = saved.transform;
-                paper.style.transformOrigin = saved.transformOrigin;
-                paper.style.boxShadow = saved.boxShadow;
-                paper.style.width = saved.width;
-                paper.style.minHeight = saved.minHeight;
-                paper.style.marginBottom = saved.marginBottom;
-            });
-        }, 100);
+        html2pdf().set({
+            margin:       0, // internal margin is already padding: 20mm
+            filename:     `INV-L37-${cust}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).from(paper).save().then(() => {
+            // Restore visual layout styles
+            paper.style.transform = oldTransform;
+            paper.style.boxShadow = oldShadow;
+        });
     }
 }
 
