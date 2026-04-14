@@ -911,37 +911,46 @@ const invoiceGenerator = {
             const paper = document.querySelector('.invoice-print');
             const cust = appState.currentInvoiceCustomer || 'Guest';
 
-            // Create a clean clone attached to the body explicitly visible 
-            // (but behind the Swal modal) so html2canvas actually renders it.
-            const clone = paper.cloneNode(true);
-            clone.style.transform = 'scale(1)';
-            clone.style.boxShadow = 'none';
-            clone.style.position = 'absolute';
-            clone.style.top = '0';
-            clone.style.left = '0';
-            clone.style.zIndex = '99';
-            clone.style.width = '210mm';
-            clone.style.minHeight = '297mm';
-            clone.style.padding = '20mm';
-            clone.style.margin = '0';
-            clone.style.background = '#fff';
-            clone.style.color = '#1e293b';
-            document.body.appendChild(clone);
+            // Backup original styles to restore later
+            const oldPTransform = paper.style.transform;
+            const oldPShadow = paper.style.boxShadow;
+            const oldPos = paper.style.position;
+            const oldTop = paper.style.top;
+            const oldLeft = paper.style.left;
+            const oldZ = paper.style.zIndex;
+
+            // Rip the original element out of all container constraints 
+            // by setting it to fixed. This bypasses ALL overflow/cut-off bugs!
+            // SweetAlert (z-index 1060+) masks this visual change from the user.
+            paper.style.transform = 'none';
+            paper.style.boxShadow = 'none';
+            paper.style.position = 'fixed';
+            paper.style.top = '0';
+            paper.style.left = '0';
+            paper.style.zIndex = '999';
 
             const opt = {
                 margin:       0,
                 filename:     `INV-L37-${cust}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, windowWidth: 794 }, // 794px = 210mm
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 800, scrollY: 0 }, 
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            html2pdf().set(opt).from(clone).outputImg().then(() => {
-                html2pdf().set(opt).from(clone).output('blob').then(blob => {
-                    document.body.removeChild(clone);
+            // Allow the browser 100ms to reflow the layout before capturing
+            setTimeout(() => {
+                html2pdf().set(opt).from(paper).output('blob').then(blob => {
+                    // Restore visuals
+                    paper.style.transform = oldPTransform;
+                    paper.style.boxShadow = oldPShadow;
+                    paper.style.position = oldPos;
+                    paper.style.top = oldTop;
+                    paper.style.left = oldLeft;
+                    paper.style.zIndex = oldZ;
+                    
                     resolve({ blob, filename: opt.filename });
                 });
-            });
+            }, 100);
         });
     },
     downloadPDF() {
