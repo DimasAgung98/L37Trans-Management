@@ -544,13 +544,17 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label>Route Area (Extra Fee)</label>
-                        <select id="b_route" onchange="calculator.updateSplit()">
-                            <option value="0" data-fee="0">Dalam Kota (Rp 0)</option>
-                            <option value="1" data-fee="150000">Luar Kota Ring 1 (Rp 150,000)</option>
-                            <option value="2" data-fee="350000">Luar Kota Ring 2 (Rp 350,000)</option>
-                        </select>
+                    <div class="form-row">
+                        <div class="col">
+                            <label>Driver Fee / Day</label>
+                            <input type="text" id="b_driver_fee" value="0" placeholder="e.g 150000" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                        </div>
+                        <div class="col">
+                            <label>Route Area Fee / Day</label>
+                            <select id="b_route" onchange="calculator.updateSplit()">
+                                <!-- Dynamically loaded by Settings -->
+                            </select>
+                        </div>
                     </div>
 
                     <div class="form-group" style="padding: 15px; border: 1px dashed var(--border-dark); border-radius: 8px;">
@@ -626,8 +630,14 @@
     <!-- Invoice Preview Modal -->
     <div id="invoiceModal" class="modal-backdrop">
         <div class="modal panel modal-lg" style="max-width: 900px; padding: 0; display:flex; flex-direction:column;">
-            <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; background: #fff; z-index: 10; flex-shrink:0;">
-                <h2 style="font-size:17px; color:#1e293b;">Invoice Preview</h2>
+            <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid #e2e8f0; background: #fff; z-index: 10; flex-shrink:0; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:15px;">
+                    <h2 style="font-size:17px; color:#1e293b; margin:0;">Invoice Preview</h2>
+                    <select id="invoice_type" style="padding:4px 8px; font-size:12px; border-radius:4px; border:1px solid #cbd5e1; outline:none;" onchange="invoiceGenerator.generate(appState.currentInvoiceId)">
+                        <option value="exclude">Detail Rincian (Exclude)</option>
+                        <option value="include">All-in (Include)</option>
+                    </select>
+                </div>
                 <i class='bx bx-x close-modal' onclick="ui.closeModal('invoiceModal')" style="cursor:pointer; color:#64748b; font-size:24px;"></i>
             </div>
             <div class="modal-body invoice-scroll-body" style="background:#f1f5f9; flex:1; overflow-y:auto; padding:16px 0;">

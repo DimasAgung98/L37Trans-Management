@@ -64,7 +64,7 @@ const ui = {
         const b = appState.bookings.find(x => x.id === bId);
         if(!b) return;
 
-        let grossRent = (b.total_bill || 0) - (b.addons || 0) - (b.route_fee || 0);
+        let grossRent = (b.total_bill || 0) - (b.addons || 0) - (b.route_fee || 0) - (b.driver_fee || 0);
         let adminRentShare = grossRent - (b.investor_share || 0);
         let pureNetProfit = adminRentShare - (b.opcost || 0);
 
@@ -76,8 +76,11 @@ const ui = {
             <div style='display:flex; justify-content:space-between; align-items:center; color:#64748b; font-size:13px; margin-bottom: 4px;'>
                 <span>Addons Gross (-):</span> <span>${ui.formatCurrency(b.addons || 0)}</span>
             </div>
-            <div style='display:flex; justify-content:space-between; align-items:center; color:#64748b; font-size:13px; margin-bottom: 8px;'>
+            <div style='display:flex; justify-content:space-between; align-items:center; color:#64748b; font-size:13px; margin-bottom: 4px;'>
                 <span>Route Fee (-):</span> <span>${ui.formatCurrency(b.route_fee || 0)}</span>
+            </div>
+            <div style='display:flex; justify-content:space-between; align-items:center; color:#64748b; font-size:13px; margin-bottom: 8px;'>
+                <span>Driver Fee (-):</span> <span>${ui.formatCurrency(b.driver_fee || 0)}</span>
             </div>
             <div style='display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:8px 10px; border-radius:6px; font-weight:600; font-size:14px; border:1px solid #e2e8f0;'>
                 <span>Pure Rent (Sewa Mobil Saja):</span> <span>${ui.formatCurrency(grossRent)}</span>
@@ -466,6 +469,8 @@ const firebaseLogic = {
         const addons_desc = addonsDescList.length > 0 ? addonsDescList.join(', ') : '';
         const customRentRaw = parseFloat(ui.parseCurrency(document.getElementById('b_custom_rent').value || '0'));
         
+        const route_fee_per_day = parseFloat(document.getElementById('b_route').selectedOptions[0].dataset.fee || 0);
+        const driver_fee_per_day = parseFloat(ui.parseCurrency(document.getElementById('b_driver_fee').value || '0'));
         if(!v_id || !start || !end || !customer) {
             Swal.fire('Warning', 'Complete all required fields!', 'warning');
             return;
@@ -517,7 +522,10 @@ const firebaseLogic = {
             start_date: start,
             end_date: end,
             duration_days: calcData.days,
-            route_fee: route_fee,
+            route_fee_per_day: route_fee_per_day,
+            route_fee: calcData.routeFeeTotal, // multiplied by duration
+            driver_fee_per_day: driver_fee_per_day,
+            driver_fee: calcData.driverFeeTotal, // multiplied by duration
             addons: addonsSum,
             addons_desc: addons_desc,
             addons_list: addons_list,
@@ -619,7 +627,7 @@ const firebaseLogic = {
         const paidBookings = appState.bookings.filter(b => b.status_payment === 'paid');
 
         paidBookings.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).forEach(b => {
-            let grossRent = (b.total_bill || 0) - (b.addons || 0) - (b.route_fee || 0);
+            let grossRent = (b.total_bill || 0) - (b.addons || 0) - (b.route_fee || 0) - (b.driver_fee || 0);
             let adminRentShare = grossRent - (b.investor_share || 0);
             let pureNetProfit = adminRentShare - (b.opcost || 0);
 
@@ -709,7 +717,8 @@ const calculator = {
         const customRentRaw = parseFloat(ui.parseCurrency(document.getElementById('b_custom_rent').value || '0'));
         if(customRentRaw > 0) sellPrice = customRentRaw;
         
-        const routeFee = parseFloat(document.getElementById('b_route').selectedOptions[0].dataset.fee || 0);
+        const routeFeePerDay = parseFloat(document.getElementById('b_route').selectedOptions[0].dataset.fee || 0);
+        const driverFeePerDay = parseFloat(ui.parseCurrency(document.getElementById('b_driver_fee').value || '0'));
         let addonsSum = 0;
         document.querySelectorAll('#addons-container .addon-cost').forEach(el => {
             addonsSum += parseFloat(ui.parseCurrency(el.value || '0'));
@@ -733,8 +742,11 @@ const calculator = {
         const days = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
         
         // Calculations
+        const routeFeeTotal = routeFeePerDay * days;
+        const driverFeeTotal = driverFeePerDay * days;
+
         const baseBill = sellPrice * days;
-        const totalBill = baseBill + addons + routeFee;
+        const totalBill = baseBill + addons + routeFeeTotal + driverFeeTotal;
         
         const investorShare = modPrice * days;
         const adminNetProfit = totalBill - investorShare - opcost;
@@ -745,7 +757,7 @@ const calculator = {
         document.getElementById('calc_investor').innerText = ui.formatCurrency(investorShare);
         document.getElementById('calc_admin').innerText = ui.formatCurrency(adminNetProfit);
 
-        this.currentData = { days, totalBill, investorShare, adminNetProfit, addons, opcost, routeFee };
+        this.currentData = { days, totalBill, investorShare, adminNetProfit, addons, opcost, routeFeeTotal, driverFeeTotal };
     },
     getCalculations() {
         return this.currentData || { days:0, totalBill:0, investorShare:0, adminNetProfit:0, addons:0, opcost:0 };
@@ -836,15 +848,42 @@ const invoiceGenerator = {
                         <th>Description</th>
                         <th style="text-align:right;">Amount</th>
                     </tr>
-                    <tr>
-                        <td>Base Rent (${b.duration_days.toFixed(1)} Days) + Route Fee</td>
-                        <td style="text-align:right; font-weight:500;">${ui.formatCurrency(b.total_bill - (b.addons || 0))}</td>
-                    </tr>
-                    ${
-                        b.addons_list && b.addons_list.length > 0 
-                        ? b.addons_list.map(a => `<tr><td>Addon: ${a.desc}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(a.cost)}</td></tr>`).join('')
-                        : (b.addons > 0 ? `<tr><td>Addons: ${b.addons_desc || 'Extras'}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(b.addons)}</td></tr>` : '')
-                    }
+                    ${(() => {
+                        const invType = document.getElementById('invoice_type') ? document.getElementById('invoice_type').value : 'exclude';
+                        const days = (b.duration_days || 0).toFixed(1);
+                        const driverFee = b.driver_fee || 0;
+                        const routeFee = b.route_fee || 0;
+                        const addons = b.addons || 0;
+                        const baseRent = b.total_bill - driverFee - routeFee - addons;
+
+                        if (invType === 'include') {
+                            return `
+                                <tr>
+                                    <td>Base Rent + Driver + Route Area + BBM/Tol/Addons</td>
+                                    <td style="text-align:right; font-weight:500;">${ui.formatCurrency(b.total_bill)}</td>
+                                </tr>
+                            `;
+                        } else {
+                            let rows = `
+                                <tr>
+                                    <td>Base Rent (${days} Days)</td>
+                                    <td style="text-align:right; font-weight:500;">${ui.formatCurrency(baseRent)}</td>
+                                </tr>
+                            `;
+                            if(driverFee > 0) {
+                                rows += `<tr><td>Driver Fee (${days} Days)</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(driverFee)}</td></tr>`;
+                            }
+                            if(routeFee > 0) {
+                                rows += `<tr><td>Route Area Fee (${days} Days)</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(routeFee)}</td></tr>`;
+                            }
+                            if(b.addons_list && b.addons_list.length > 0) {
+                                rows += b.addons_list.map(a => `<tr><td>Addon: ${a.desc}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(a.cost)}</td></tr>`).join('');
+                            } else if(addons > 0) {
+                                rows += `<tr><td>Addons: ${b.addons_desc || 'Extras'}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(addons)}</td></tr>`;
+                            }
+                            return rows;
+                        }
+                    })()}
                     <tr class="total">
                         <td style="text-align:right; padding-right:20px; text-transform:uppercase; font-size:14px;">Grand Total</td>
                         <td style="text-align:right;">${ui.formatCurrency(b.total_bill)}</td>
@@ -872,15 +911,15 @@ const invoiceGenerator = {
             const paper = document.querySelector('.invoice-print');
             const cust = appState.currentInvoiceCustomer || 'Guest';
 
-            // Create a clean clone attached to the body but hidden behind everything
-            // This prevents the viewport/scroll overflow from cutting off the PDF.
+            // Create a clean clone attached to the body explicitly visible 
+            // (but behind the Swal modal) so html2canvas actually renders it.
             const clone = paper.cloneNode(true);
             clone.style.transform = 'scale(1)';
             clone.style.boxShadow = 'none';
             clone.style.position = 'absolute';
             clone.style.top = '0';
             clone.style.left = '0';
-            clone.style.zIndex = '-9999';
+            clone.style.zIndex = '99';
             clone.style.width = '210mm';
             clone.style.minHeight = '297mm';
             clone.style.padding = '20mm';
@@ -1092,12 +1131,14 @@ appState.editBooking = (id) => {
         }
 
         const routeSelect = document.getElementById('b_route');
+        const rFeeToMatch = b.route_fee_per_day !== undefined ? b.route_fee_per_day : (b.route_fee || 0);
         for(let i=0; i<routeSelect.options.length; i++) {
-            if(parseFloat(routeSelect.options[i].dataset.fee) === (b.route_fee || 0)) {
+            if(parseFloat(routeSelect.options[i].dataset.fee) === rFeeToMatch) {
                 routeSelect.selectedIndex = i; break;
             }
         }
         
+        document.getElementById('b_driver_fee').value = (b.driver_fee_per_day || 0).toLocaleString('id-ID');
         document.getElementById('b_payment_status').value = b.status_payment || 'pending';
         
         ui.openModal('bookingModal');
