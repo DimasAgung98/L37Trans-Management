@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L37 Trans Admin Dashboard</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FullCalendar CSS -->
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
+    
+    <!-- SweetAlert2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.8/dist/sweetalert2.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Mobile-Dedicated Responsive CSS -->
+    <link rel="stylesheet" href="css/mobile.css">
+    
+    <!-- Boxicons -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <style>
+        /* SaaS Dashboard Core Styles */
+        .saas-card {
+            background: #ffffff;
+            border-radius: 20px;
+            border: 1px solid #e3e8ee;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            padding: 28px;
+            margin-bottom: 24px;
+        }
+        .saas-card h3 {
+            font-size: 18px; color: #1a1f36; display: flex; align-items: center; gap: 10px; margin-bottom: 24px; font-weight: 600; border-bottom: none; padding-bottom:0;
+        }
+        .saas-icon-wrapper {
+            background: #f3f6f8; color: #4f566b; padding: 10px; border-radius: 12px; display: flex;
+        }
+        .saas-label {
+            font-weight: 500; color: #4f566b; margin-bottom: 8px; font-size: 14px;
+        }
+        .saas-input {
+            border: 1px solid #e3e8ee; border-radius: 12px; padding: 14px 16px; font-size: 15px; width: 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.02); transition: all 0.2s; background: #fff;
+        }
+        .saas-input:focus {
+            border-color: var(--accent); box-shadow: 0 0 0 4px rgba(5,173,152,0.1); outline: none;
+        }
+        .saas-textarea { resize: vertical; min-height: 80px; }
+        .saas-col-left { flex: 1 1 55%; display: flex; flex-direction: column; }
+        .saas-col-right { flex: 1 1 40%; display: flex; flex-direction: column; }
+        .sticky-footer {
+            position: fixed; bottom: 0; left: 240px; width: calc(100% - 240px); background: rgba(255,255,255,0.9); backdrop-filter: blur(12px); border-top: 1px solid #e3e8ee; padding: 16px 32px; display: flex; justify-content: flex-end; z-index: 50;
+        }
+        #pin-gate { backdrop-filter: blur(12px); }
+    </style>
+</head>
+<body class="light-theme">
+
+    <!-- PIN Auth Gate -->
+    <div id="pin-gate" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-dark); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white;">
+        <div class="panel" style="background:#222533; padding:40px; text-align:center; max-width:400px; width:90%; border: 1px solid var(--border-dark);">
+            <h1 style="color:var(--accent); margin-bottom:10px; font-size:24px;"><i class='bx bx-lock-alt'></i> L37 Trans</h1>
+            <p style="color:var(--text-muted); font-size:14px; margin-bottom:20px;">Enter Admin PIN to access dashboard.</p>
+            <input type="password" id="admin-pin-input" placeholder="••••••" style="width:100%; text-align:center; letter-spacing:8px; font-size:24px; padding:15px; margin-bottom:20px; background:var(--bg-main); border:1px solid var(--border-dark); color:white; border-radius:8px;">
+            <button class="btn btn-primary" style="width:100%; padding:15px; font-size:16px; font-weight:600;" onclick="firebaseLogic.verifyPIN()"><i class='bx bx-check-shield'></i> Unlock Dashboard</button>
+            <p style="color:#666; font-size:12px; margin-top:20px;">Default PIN is 123456 for new setup.</p>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar panel">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <img src="assets/logo.png" alt="L37" style="width: 38px; height: 38px; border-radius: 8px; margin-right: 8px;">
+                    <h2>L37<span class="accent-text">Trans</span></h2>
+                </div>
+            </div>
+
+            <ul class="nav-links">
+                <li class="active" data-target="dashboard-section"><i class='bx bx-grid-alt'></i> Dashboard</li>
+                <li data-target="calendar-section"><i class='bx bx-calendar'></i> Schedule Calendar</li>
+                <li data-target="vehicles-section"><i class='bx bx-car'></i> Fleet Management</li>
+                <li data-target="bookings-section"><i class='bx bx-book-content'></i> Bookings</li>
+                <li data-target="revenue-section"><i class='bx bx-line-chart'></i> Revenue & Finance</li>
+                <li data-target="customers-section"><i class='bx bx-group'></i> Customers</li>
+                <li data-target="settings-section"><i class='bx bx-cog'></i> Settings</li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="topbar panel" style="justify-content: flex-end;">
+                <div class="user-info">
+                    <div class="status-indicator"></div>
+                    <span>Administrator</span>
+                    <img src="https://ui-avatars.com/api/?name=Admin&background=05AD98&color=FFF" alt="Admin">
+                </div>
+            </header>
+
+            <!-- Sections Container -->
+            <div class="sections-wrapper">
+                
+                <!-- Dashboard Section -->
+                <section id="dashboard-section" class="section active">
+                    <h1 class="section-title">Overview</h1>
+                    <div class="stats-grid">
+                        <div class="stat-card panel">
+                            <i class='bx bx-car'></i>
+                            <div>
+                                <h3>Total Fleet</h3>
+                                <p id="stat-total-fleet">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card panel">
+                            <i class='bx bxs-car-garage'></i>
+                            <div>
+                                <h3>Available Cars</h3>
+                                <p id="stat-available-cars">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card panel">
+                            <i class='bx bx-wrench'></i>
+                            <div>
+                                <h3>In Maintenance</h3>
+                                <p id="stat-maintenance-cars">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card panel">
+                            <i class='bx bx-book-open'></i>
+                            <div>
+                                <h3>Active Bookings</h3>
+                                <p id="stat-active-bookings">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card panel">
+                            <i class='bx bx-calendar-event'></i>
+                            <div>
+                                <h3>Today Bookings</h3>
+                                <p id="stat-today-bookings">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card panel">
+                            <i class='bx bx-time'></i>
+                            <div>
+                                <h3>Pending Payments</h3>
+                                <p id="stat-pending-payments">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card panel">
+                            <i class='bx bx-wallet'></i>
+                            <div>
+                                <h3>Monthly Revenue</h3>
+                                <p id="stat-revenue">Rp 0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card panel" style="grid-column: 1 / -1; display: flex; flex-direction: row; align-items: center; justify-content: space-between; border-left: 5px solid var(--border-dark);">
+                            <div>
+                                <h3 style="color: var(--text-main); font-size: 16px;">Quick Actions</h3>
+                                <p style="font-size: 13px; font-weight: 500; color: var(--text-muted);">Manage your rental fleet efficiently</p>
+                            </div>
+                            <div style="display: flex; gap: 12px; font-weight: normal;">
+                                <button class="btn btn-primary" onclick="ui.openModal('bookingModal')"><i class='bx bx-plus'></i> Add Booking</button>
+                                <button class="btn btn-secondary" onclick="ui.openModal('vehicleModal')"><i class='bx bx-car'></i> Add Car</button>
+                                <button class="btn btn-secondary" onclick="document.querySelector('[data-target=calendar-section]').click()"><i class='bx bx-calendar'></i> Open Calendar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-widgets" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 24px;">
+                        <!-- Active Rentals -->
+                        <div class="panel" style="padding: 0; overflow: hidden;">
+                            <h3 style="padding: 15px 20px; font-size: 15px; border-bottom: 1px solid var(--border-dark); color: #05AD98; margin: 0; background-color: rgba(5, 173, 152, 0.05); display: flex; align-items: center; gap: 8px;"><i class='bx bxs-car'></i> Active On-Road Rentals</h3>
+                            <table style="width:100%; border-collapse:collapse; font-size: 13px; text-align: left;">
+                                <thead>
+                                    <tr style="border-bottom:1px solid var(--border-dark); background-color: var(--bg-main);">
+                                        <th style="padding:12px 20px; color:var(--text-muted); font-size:11px; text-transform:uppercase;">Unit</th>
+                                        <th style="padding:12px 20px; color:var(--text-muted); font-size:11px; text-transform:uppercase;">Customer</th>
+                                        <th style="padding:12px 20px; color:var(--text-muted); font-size:11px; text-transform:uppercase;">Return</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-active-table">
+                                    <!-- Populated JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pending Attention -->
+                        <div class="panel" style="padding: 0; overflow: hidden;">
+                            <h3 style="padding: 15px 20px; font-size: 15px; border-bottom: 1px solid var(--border-dark); color: #f39c12; margin: 0; background-color: rgba(243, 156, 18, 0.05); display: flex; align-items: center; gap: 8px;"><i class='bx bxs-error-circle'></i> Needs Attention (Pending)</h3>
+                            <table style="width:100%; border-collapse:collapse; font-size: 13px; text-align: left;">
+                                <thead>
+                                    <tr style="border-bottom:1px solid var(--border-dark); background-color: var(--bg-main);">
+                                        <th style="padding:12px 20px; color:var(--text-muted); font-size:11px; text-transform:uppercase;">Customer</th>
+                                        <th style="padding:12px 20px; color:var(--text-muted); font-size:11px; text-transform:uppercase;">Unit</th>
+                                        <th style="padding:12px 20px; color:var(--text-muted); font-size:11px; text-transform:uppercase;">Total Bill</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-pending-table">
+                                    <!-- Populated JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Calendar Section -->
+                <section id="calendar-section" class="section">
+                    <h1 class="section-title">Booking Calendar</h1>
+                    <div id="calendar" class="panel"></div>
+                </section>
+
+                <!-- Fleet Management Section -->
+                <section id="vehicles-section" class="section">
+                    <div class="section-header">
+                        <h1 class="section-title">Fleet Management</h1>
+                        <button class="btn btn-primary" onclick="ui.openModal('vehicleModal')">+ Add Vehicle</button>
+                    </div>
+                    <div class="table-container panel">
+                        <table id="vehiclesTable">
+                            <thead>
+                                <tr>
+                                    <th>Unit Name</th>
+                                    <th>Plate Number</th>
+                                    <th>Investor Price/Day</th>
+                                    <th>Selling Price/Day</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Generated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Bookings Section -->
+                <section id="bookings-section" class="section">
+                    <div class="section-header">
+                        <h1 class="section-title">Booking Management</h1>
+                        <button class="btn btn-primary" onclick="ui.openModal('bookingModal')">+ New Booking</button>
+                    </div>
+                    <div class="table-container panel">
+                        <table id="bookingsTable">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Vehicle</th>
+                                    <th>Duration</th>
+                                    <th>Total Bill</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Generated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Customers Section -->
+                <section id="customers-section" class="section">
+                    <div class="section-header">
+                        <h1 class="section-title">Customer Database</h1>
+                        <button class="btn btn-primary" onclick="ui.openModal('customerModal')">+ Add Customer</button>
+                    </div>
+                    <div class="table-container panel">
+                        <table id="customersTable">
+                            <thead>
+                                <tr>
+                                    <th>Customer Name</th>
+                                    <th>Phone / WA</th>
+                                    <th>ID (KTP/Passport)</th>
+                                    <th>Address</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Generated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Revenue Section -->
+                <section id="revenue-section" class="section">
+                    <div class="section-header">
+                        <h1 class="section-title">Finance & Revenue</h1>
+                    </div>
+                    <div class="stats-grid" style="margin-bottom: 24px;">
+                        <div class="stat-card panel">
+                            <i class='bx bx-money' style="color: #27ae60; background: rgba(39, 174, 96, 0.1);"></i>
+                            <div>
+                                <h3>Total Gross (Addons + Pure Rent)</h3>
+                                <p id="rev-total-omzet">Rp 0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card panel">
+                            <i class='bx bxs-pie-chart-alt-2' style="color: #f39c12; background: rgba(243, 156, 18, 0.1);"></i>
+                            <div>
+                                <h3>Total Investor Share</h3>
+                                <p id="rev-total-investor">Rp 0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card panel">
+                            <i class='bx bx-trending-up' style="color: var(--accent); background: var(--accent-light);"></i>
+                            <div>
+                                <h3>Total Admin Pure Net Profit</h3>
+                                <p id="rev-total-profit">Rp 0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container panel">
+                        <table id="revenueTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Ref / Customer</th>
+                                    <th>Addons Gross</th>
+                                    <th>Route Fee Gross</th>
+                                    <th>Investor Share</th>
+                                    <th>Pure Net Profit</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Generated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="settings-section" class="section" style="background:#f7f9fc; padding: 30px; padding-bottom: 100px; min-height: 100vh;">
+                    <h1 class="section-title" style="margin-bottom:24px; font-weight:700; font-size:26px; color:#1a1f36;">System Configuration</h1>
+                    
+                    <div style="display:flex; flex-wrap:wrap; gap:24px; align-items:flex-start;">
+                        
+                        <!-- Left Column 60% -->
+                        <div class="saas-col-left">
+                            <div class="saas-card">
+                                <h3>
+                                    <div class="saas-icon-wrapper" style="color:#0ea5e9; background:#e0f2fe;"><i class='bx bx-building'></i></div>
+                                    Brand Identity
+                                </h3>
+                                
+                                <div class="form-group" style="margin-bottom:20px;">
+                                    <label class="saas-label">Brand / Company Name</label>
+                                    <input type="text" id="setting-company" value="L37 Trans" class="saas-input">
+                                </div>
+                                <div class="form-group" style="margin-bottom:20px;">
+                                    <label class="saas-label">Subheader / Tagline</label>
+                                    <input type="text" id="setting-tagline" value="Rent Car & Travel" class="saas-input" placeholder="e.g. Rent Car & Travel">
+                                </div>
+                                <div class="form-group" style="margin-bottom:20px;">
+                                    <label class="saas-label" style="display:flex; align-items:center; gap:5px;"><i class='bx bxl-whatsapp'></i> Phone / WhatsApp</label>
+                                    <input type="text" id="setting-phone" value="+62 812-3456-7890" class="saas-input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="saas-label" style="display:flex; align-items:center; gap:5px;"><i class='bx bx-map-pin'></i> Company Address</label>
+                                    <textarea id="setting-address" class="saas-input saas-textarea">Jl. Vichy No. 98, Jakarta</textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column 40% -->
+                        <div class="saas-col-right">
+                            <div class="saas-card">
+                                <h3>
+                                    <div class="saas-icon-wrapper" style="color:#f59e0b; background:#fef3c7;"><i class='bx bx-wallet'></i></div>
+                                    Payment Details
+                                </h3>
+                                <div class="form-group" style="margin-bottom:20px;">
+                                    <label class="saas-label">Bank Account Instructions</label>
+                                    <textarea id="setting-bank" class="saas-input saas-textarea">BCA: 1234567890 a.n L37 Trans</textarea>
+                                </div>
+                                
+                                <h3 style="margin-top:30px;">
+                                    <div class="saas-icon-wrapper" style="color:#8b5cf6; background:#ede9fe;"><i class='bx bx-file'></i></div>
+                                    Terms & Conditions
+                                </h3>
+                                <div class="form-group">
+                                    <label class="saas-label">Invoice Footer Notes</label>
+                                    <textarea id="setting-footer" class="saas-input saas-textarea">Terima kasih atas kepercayaan Anda menyewa kendaraan di tempat kami.</textarea>
+                                </div>
+                            </div>
+
+                            <div class="saas-card" style="border: 1px solid #fee2e2; background: #fffbfb;">
+                                <h3>
+                                    <div class="saas-icon-wrapper" style="color:#ef4444; background:#fee2e2;"><i class='bx bx-lock-alt'></i></div>
+                                    Security Core
+                                </h3>
+                                <div class="form-group">
+                                    <label class="saas-label">Change Admin Access PIN</label>
+                                    <input type="password" id="setting-pin" class="saas-input" placeholder="Leave blank to keep current PIN" style="letter-spacing: 4px; font-weight: bold;">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Full Width Bottom Column -->
+                        <div style="flex: 1 1 100%;">
+                            <div class="saas-card">
+                                <h3 style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div style="display:flex; align-items:center; gap:10px;">
+                                        <div class="saas-icon-wrapper" style="color:#10b981; background:#d1fae5;"><i class='bx bx-map-alt'></i></div>
+                                        Region / Route Fees
+                                    </div>
+                                    <button class="btn btn-primary" style="font-size:13px; border-radius:10px; padding:8px 16px;" onclick="ui.addSettingRoute()">+ Add Route</button>
+                                </h3>
+                                <p style="color:#64748b; font-size:13px; margin-bottom:20px; margin-top:-10px;">Configure additional delivery or boundary crossing fees automatically included in invoices.</p>
+                                
+                                <div id="settings-routes-container">
+                                    <!-- Form rows populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="sticky-footer">
+                        <button id="save-btn" class="btn btn-primary" style="padding: 14px 32px; font-size: 15px; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 12px rgba(5,173,152,0.3);" onclick="firebaseLogic.saveSettings()"><i class='bx bx-save'></i> Save Configuration</button>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Vehicle Modal -->
+    <div id="vehicleModal" class="modal-backdrop">
+        <div class="modal panel">
+            <div class="modal-header">
+                <h2>Add / Edit Vehicle</h2>
+                <i class='bx bx-x close-modal' onclick="ui.closeModal('vehicleModal')"></i>
+            </div>
+            <div class="modal-body">
+                <form id="vehicleForm">
+                    <input type="hidden" id="v_id">
+                    <div class="form-group">
+                        <label>Unit Name</label>
+                        <input type="text" id="v_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>License Plate</label>
+                        <input type="text" id="v_plate" required>
+                    </div>
+                    <div class="form-group form-row">
+                        <div class="col">
+                            <label>Modal Price (Investor)/Day</label>
+                            <input type="text" id="v_investor_price" oninput="ui.formatInputCurrency(this)" required>
+                        </div>
+                        <div class="col">
+                            <label>Selling Price/Day</label>
+                            <input type="text" id="v_selling_price" oninput="ui.formatInputCurrency(this)" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="v_status">
+                            <option value="available">Available</option>
+                            <option value="maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100" onclick="firebaseLogic.saveVehicle()">Save Vehicle</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Modal -->
+    <div id="customerModal" class="modal-backdrop">
+        <div class="modal panel">
+            <div class="modal-header">
+                <h2>Add / Edit Customer</h2>
+                <i class='bx bx-x close-modal' onclick="ui.closeModal('customerModal')"></i>
+            </div>
+            <div class="modal-body">
+                <form id="customerForm">
+                    <input type="hidden" id="c_id">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="c_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone / WhatsApp</label>
+                        <input type="text" id="c_phone" required>
+                    </div>
+                    <div class="form-group">
+                        <label>ID Card Number (KTP/Passport)</label>
+                        <input type="text" id="c_ktp">
+                    </div>
+                    <div class="form-group">
+                        <label>Address</label>
+                        <textarea id="c_address" rows="3"></textarea>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100 mt-3" onclick="firebaseLogic.saveCustomer()">Save Customer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Booking Modal -->
+    <div id="bookingModal" class="modal-backdrop">
+        <div class="modal panel modal-lg">
+            <div class="modal-header">
+                <h2>New Booking (Conflict Check Enabled)</h2>
+                <i class='bx bx-x close-modal' onclick="ui.closeModal('bookingModal')"></i>
+            </div>
+            <div class="modal-body">
+                <form id="bookingForm">
+                    <input type="hidden" id="b_id">
+                    <div class="form-row">
+                        <div class="col">
+                            <label>Customer Name</label>
+                            <input type="text" id="b_customer" list="customers_list" autocomplete="off" required>
+                            <datalist id="customers_list">
+                                <!-- Generated by JS -->
+                            </datalist>
+                        </div>
+                        <div class="col">
+                            <label>Vehicle</label>
+                            <select id="b_vehicle" onchange="calculator.updateSplit()" required>
+                                <option value="">Select Unit</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="col" style="flex:1;">
+                            <label>Start Date & Time</label>
+                            <input type="datetime-local" id="b_start" onchange="calculator.updateSplit()" required>
+                        </div>
+                        <div class="col" style="flex:1;">
+                            <label>End Date & Time</label>
+                            <input type="datetime-local" id="b_end" onchange="calculator.updateSplit()" required>
+                        </div>
+                        <div class="col" style="flex:1;">
+                            <label>Custom Base Rent / Day (Optional)</label>
+                            <input type="text" id="b_custom_rent" placeholder="Override standard price" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Route Area (Extra Fee)</label>
+                        <select id="b_route" onchange="calculator.updateSplit()">
+                            <option value="0" data-fee="0">Dalam Kota (Rp 0)</option>
+                            <option value="1" data-fee="150000">Luar Kota Ring 1 (Rp 150,000)</option>
+                            <option value="2" data-fee="350000">Luar Kota Ring 2 (Rp 350,000)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="padding: 15px; border: 1px dashed var(--border-dark); border-radius: 8px;">
+                        <label style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>Addons (Driver, Fuel, e-Toll, etc)</span>
+                            <button type="button" class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="ui.addAddonRow()">+ Add Row</button>
+                        </label>
+                        <div id="addons-container">
+                            <div class="form-row addon-item" style="margin-top:10px;">
+                                <div class="col" style="flex:2;">
+                                    <input type="text" class="addon-desc" placeholder="Addon Name (e.g. Driver)">
+                                </div>
+                                <div class="col" style="flex:1;">
+                                    <input type="text" class="addon-cost" value="0" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                                </div>
+                                <div style="display:flex; align-items:center; justify-content:center;">
+                                    <i class='bx bx-trash' style="color:var(--danger); cursor:pointer; font-size:20px;" onclick="this.parentElement.parentElement.remove(); calculator.updateSplit()"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="col">
+                            <label>Operational Cost (Admin expense)</label>
+                            <input type="text" id="b_opcost" value="0" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                        </div>
+                        <div class="col">
+                            <label>Payment Status</label>
+                            <select id="b_payment_status">
+                                <option value="pending">Pending</option>
+                                <option value="on-hold">On Hold</option>
+                                <option value="paid">Paid</option>
+                                <option value="refunded">Refunded</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Calculator Box -->
+                    <div class="calc-box panel-inner">
+                        <h4>Finances Projection</h4>
+                        <div class="calc-row"><span>Total Duration:</span> <span id="calc_duration">0 Days</span></div>
+                        <div class="calc-row"><span>Gross Total Bill:</span> <span id="calc_bill" class="accent-text" style="font-weight: 700;">Rp 0</span></div>
+                        <hr>
+                        <div class="calc-row"><span>Investor Share (Modal):</span> <span id="calc_investor">Rp 0</span></div>
+                        <div class="calc-row"><span>Admin Profit (Net):</span> <span id="calc_admin" class="accent-text">Rp 0</span></div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary w-100 mt-3" onclick="firebaseLogic.saveBooking()">Verify & Save Booking</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Breakdown Modal -->
+    <div id="breakdownModal" class="modal-backdrop">
+        <div class="modal panel" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 id="breakdown_title">Profit Breakdown</h2>
+                <i class='bx bx-x close-modal' onclick="ui.closeModal('breakdownModal')"></i>
+            </div>
+            <div class="modal-body">
+                <div style="background:#f8fafc; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
+                    <div id="breakdown_content" style="font-family: 'Inter', sans-serif; font-size: 14px; display:flex; flex-direction:column; gap:12px; color:#475569;">
+                        <!-- JS injected -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invoice Preview Modal -->
+    <div id="invoiceModal" class="modal-backdrop">
+        <div class="modal panel modal-lg" style="max-width: 900px; padding: 0;">
+            <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid #e2e8f0; background: #fff; z-index: 10;">
+                <h2 style="font-size:18px; color:#1e293b;">Invoice Preview</h2>
+                <i class='bx bx-x close-modal' onclick="ui.closeModal('invoiceModal')" style="cursor:pointer; color:#64748b; font-size:24px;"></i>
+            </div>
+            <div class="modal-body" style="background:#f1f5f9; max-height: 85vh; overflow-y:auto; padding:20px 0;">
+                <div class="preview-wrapper" style="width: 100%; display: flex; justify-content: center;">
+                    <div id="invoiceTemplatePopup"></div>
+                </div>
+            </div>
+            <div style="padding: 15px; border-top: 1px solid var(--border-dark); display: flex; justify-content:flex-end;">
+                <button class="btn btn-primary" onclick="invoiceGenerator.downloadPDF()"><i class='bx bxs-file-pdf'></i> Download PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unit Detail Modal -->
+    <div id="unitDetailModal" class="modal-backdrop">
+        <div class="modal panel modal-lg">
+            <div class="modal-header">
+                <h2 id="ud_title">Unit Details</h2>
+                <i class='bx bx-x close-modal' onclick="ui.closeModal('unitDetailModal')"></i>
+            </div>
+            <div class="modal-body" style="background:#f8f9fa;">
+                <div class="stats-grid" style="margin-bottom:20px; grid-template-columns: repeat(3, 1fr);">
+                    <div class="stat-card panel" style="box-shadow:none; border: 1px solid var(--border-dark);">
+                        <i class='bx bx-id-card'></i><div><h3 style="font-size:12px; margin-bottom: 2px;">License Plate</h3><p id="ud_plate" style="font-size:16px;">-</p></div>
+                    </div>
+                    <div class="stat-card panel" style="box-shadow:none; border: 1px solid var(--border-dark);">
+                        <i class='bx bx-check-shield'></i><div><h3 style="font-size:12px; margin-bottom: 2px;">Current Status</h3><p id="ud_status" style="font-size:16px;">-</p></div>
+                    </div>
+                    <div class="stat-card panel" style="box-shadow:none; border: 1px solid var(--border-dark);">
+                        <i class='bx bx-book-open'></i><div><h3 style="font-size:12px; margin-bottom: 2px;">Total Rents</h3><p id="ud_rents" style="font-size:16px;">0</p></div>
+                    </div>
+                </div>
+                
+                <h3 style="margin-bottom:10px; font-size:15px; color:var(--text-main); font-weight:600;"><i class='bx bx-history'></i> Recent Bookings</h3>
+                <div class="panel" style="box-shadow:none; padding:0; overflow:hidden; border: 1px solid var(--border-dark); max-height: 250px; overflow-y: auto;">
+                    <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:left;">
+                        <thead>
+                            <tr style="background:var(--bg-main); border-bottom:1px solid var(--border-dark); position: sticky; top: 0;">
+                                <th style="padding:10px 15px; color:var(--text-muted); font-weight:600; font-size:11px; text-transform:uppercase;">Customer</th>
+                                <th style="padding:10px 15px; color:var(--text-muted); font-weight:600; font-size:11px; text-transform:uppercase;">Date Range</th>
+                                <th style="padding:10px 15px; color:var(--text-muted); font-weight:600; font-size:11px; text-transform:uppercase;">Payment</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ud_bookings_list">
+                            <!-- Populated -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 style="margin-top:20px; margin-bottom:10px; font-size:15px; color:var(--text-main); font-weight:600;"><i class='bx bx-calendar'></i> Schedule Calendar</h3>
+                <div id="ud_calendar" class="panel" style="box-shadow:none; padding:15px; border: 1px solid var(--border-dark);"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.8/dist/sweetalert2.all.min.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <script type="module" src="js/firebase-init.js"></script>
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
