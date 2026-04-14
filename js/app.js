@@ -870,22 +870,31 @@ const invoiceGenerator = {
         const paper = document.querySelector('.invoice-print');
         const cust = appState.currentInvoiceCustomer || 'Guest';
         
-        // Remove scale and shadow before printing to generate pure A4
-        const oldTransform = paper.style.transform;
-        const oldShadow = paper.style.boxShadow;
-        paper.style.transform = 'scale(1)';
-        paper.style.boxShadow = 'none';
+        // Clone the invoice element for clean rendering (avoid mobile CSS interference)
+        const clone = paper.cloneNode(true);
+        clone.style.transform = 'none';
+        clone.style.boxShadow = 'none';
+        clone.style.width = '210mm';
+        clone.style.minHeight = '297mm';
+        clone.style.padding = '20mm';
+        clone.style.margin = '0';
+        clone.style.position = 'absolute';
+        clone.style.left = '-9999px';
+        clone.style.top = '0';
+        clone.style.background = '#fff';
+        clone.style.fontSize = '15px';
+        document.body.appendChild(clone);
 
         html2pdf().set({
-            margin:       0, // internal margin is already padding: 20mm
+            margin:       0,
             filename:     `INV-L37-${cust}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true },
+            html2canvas:  { scale: 2, useCORS: true, width: 794, windowWidth: 794 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        }).from(paper).save().then(() => {
-            // Restore visual layout styles
-            paper.style.transform = oldTransform;
-            paper.style.boxShadow = oldShadow;
+        }).from(clone).save().then(() => {
+            document.body.removeChild(clone);
+        }).catch(() => {
+            document.body.removeChild(clone);
         });
     }
 }

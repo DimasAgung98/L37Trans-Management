@@ -438,7 +438,7 @@
     }
     input, select, textarea {
         padding: 10px 12px !important;
-        font-size: 14px !important;
+        font-size: 16px !important; /* Must be 16px+ to prevent iOS auto-zoom */
         border-radius: 8px !important;
     }
     .btn {
@@ -543,12 +543,31 @@
         letter-spacing: 6px !important;
     }
 
-    /* ── INVOICE PREVIEW ── */
+    /* ── INVOICE PREVIEW MODAL ── */
+    #invoiceModal .modal.modal-lg {
+        max-height: 92vh !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    #invoiceModal .modal-header {
+        flex-shrink: 0;
+    }
+    .invoice-scroll-body {
+        flex: 1 !important;
+        overflow-y: auto !important;
+        max-height: none !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    .invoice-footer-btn {
+        position: sticky;
+        bottom: 0;
+        flex-shrink: 0;
+    }
     .preview-wrapper {
         justify-content: flex-start !important;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        padding: 8px 0 !important;
+        padding: 8px 12px !important;
     }
     .invoice-print {
         transform: scale(0.48) !important;
