@@ -867,26 +867,54 @@ const invoiceGenerator = {
         document.getElementById('invoiceTemplatePopup').innerHTML = invHtml;
         ui.openModal('invoiceModal');
     },
+    _generatePDFBlob() {
+        return new Promise((resolve) => {
+            const paper = document.querySelector('.invoice-print');
+            const cust = appState.currentInvoiceCustomer || 'Guest';
+
+            // Create a clean clone attached to the body but hidden behind everything
+            // This prevents the viewport/scroll overflow from cutting off the PDF.
+            const clone = paper.cloneNode(true);
+            clone.style.transform = 'scale(1)';
+            clone.style.boxShadow = 'none';
+            clone.style.position = 'absolute';
+            clone.style.top = '0';
+            clone.style.left = '0';
+            clone.style.zIndex = '-9999';
+            clone.style.width = '210mm';
+            clone.style.minHeight = '297mm';
+            clone.style.padding = '20mm';
+            clone.style.margin = '0';
+            clone.style.background = '#fff';
+            clone.style.color = '#1e293b';
+            document.body.appendChild(clone);
+
+            const opt = {
+                margin:       0,
+                filename:     `INV-L37-${cust}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 794 }, // 794px = 210mm
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(clone).outputImg().then(() => {
+                html2pdf().set(opt).from(clone).output('blob').then(blob => {
+                    document.body.removeChild(clone);
+                    resolve({ blob, filename: opt.filename });
+                });
+            });
+        });
+    },
     downloadPDF() {
-        const paper = document.querySelector('.invoice-print');
-        const cust = appState.currentInvoiceCustomer || 'Guest';
-
-        // Remove scale and shadow before printing to generate pure A4
-        const oldTransform = paper.style.transform;
-        const oldShadow = paper.style.boxShadow;
-        paper.style.transform = 'scale(1)';
-        paper.style.boxShadow = 'none';
-
-        html2pdf().set({
-            margin:       0, // internal margin is already padding: 20mm
-            filename:     `INV-L37-${cust}.pdf`,
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024 },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        }).from(paper).save().then(() => {
-            // Restore visual layout styles
-            paper.style.transform = oldTransform;
-            paper.style.boxShadow = oldShadow;
+        Swal.fire({ title: 'Generating PDF...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        this._generatePDFBlob().then(({ blob, filename }) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+            Swal.close();
         });
     },
     shareWhatsApp() {
@@ -895,16 +923,48 @@ const invoiceGenerator = {
         const b = appState.bookings.find(x => x.id === id);
         if(!b) return;
         
-        let message = `*INVOICE L37 TRANS*\n`;
-        message += `ID: #${b.id.substring(0,8).toUpperCase()}\n`;
-        message += `Customer: ${b.customer_name}\n`;
-        message += `Unit: ${b.vehicle_name}\n`;
-        message += `Periode: ${new Date(b.start_date).toLocaleDateString('id-ID')} s/d ${new Date(b.end_date).toLocaleDateString('id-ID')}\n\n`;
-        message += `*Total Tagihan: ${ui.formatCurrency(b.total_bill)}*\n\n`;
-        message += `Terima kasih telah menggunakan layanan kami.`;
+        let message = `*INVOICE L37 TRANS*\nID: #${b.id.substring(0,8).toUpperCase()}\nCustomer: ${b.customer_name}\nUnit: ${b.vehicle_name}\nPeriode: ${new Date(b.start_date).toLocaleDateString('id-ID')} s/d ${new Date(b.end_date).toLocaleDateString('id-ID')}\n\n*Total Tagihan: ${ui.formatCurrency(b.total_bill)}*\n\nTerima kasih telah menggunakan layanan kami.`;
         
-        const waLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
-        window.open(waLink, '_blank');
+        Swal.fire({ title: 'Preparing PDF...', text: 'Please wait...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        this._generatePDFBlob().then(async ({ blob, filename }) => {
+            Swal.close();
+            const file = new File([blob], filename, { type: 'application/pdf' });
+
+            // Check if Native Mobile Share with Files is supported (Android/iOS)
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Invoice L37 Trans',
+                        text: message
+                    });
+                } catch (error) {
+                    console.log('Share was cancelled or failed.');
+                }
+            } else {
+                // PC / Unsupported Browser Fallback: Download the file and open WA web
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Buka WhatsApp Web',
+                    text: 'Browser PC tidak mendukung kirim file otomatis. PDF akan didownload, silakan lampirkan manual di WhatsApp Web yang akan terbuka.',
+                    confirmButtonText: 'Lanjutkan',
+                    background: '#fff',
+                    color: '#1e293b'
+                }).then(() => {
+                    // Auto download
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    
+                    // Open WA Web Text
+                    const waLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+                    window.open(waLink, '_blank');
+                });
+            }
+        });
     }
 }
 
