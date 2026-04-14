@@ -909,44 +909,42 @@ const invoiceGenerator = {
     _generatePDFBlob() {
         return new Promise((resolve) => {
             const paper = document.querySelector('.invoice-print');
+            const wrapper = document.querySelector('.preview-wrapper');
+            const modalBody = document.querySelector('.invoice-scroll-body');
             const cust = appState.currentInvoiceCustomer || 'Guest';
 
-            // Backup original styles to restore later
-            const oldPTransform = paper.style.transform;
-            const oldPShadow = paper.style.boxShadow;
-            const oldPos = paper.style.position;
-            const oldTop = paper.style.top;
-            const oldLeft = paper.style.left;
-            const oldZ = paper.style.zIndex;
+            // Backup styles
+            const oldTransform = paper.style.transform;
+            const oldShadow = paper.style.boxShadow;
+            const oldWidth = paper.style.width;
+            const oldWOverflow = wrapper.style.overflowX;
+            const oldMOverflow = modalBody.style.overflowY;
 
-            // Rip the original element out of all container constraints 
-            // by setting it to fixed. This bypasses ALL overflow/cut-off bugs!
-            // SweetAlert (z-index 1060+) masks this visual change from the user.
-            paper.style.transform = 'none';
+            // Remove purely visual constraints
+            paper.style.transform = 'scale(1)';
             paper.style.boxShadow = 'none';
-            paper.style.position = 'fixed';
-            paper.style.top = '0';
-            paper.style.left = '0';
-            paper.style.zIndex = '999';
+            paper.style.width = '210mm';
+            
+            // Crucial: remove scrolling boundaries so html2canvas captures entire overflowed width
+            wrapper.style.overflowX = 'visible';
+            modalBody.style.overflowY = 'visible';
 
             const opt = {
                 margin:       0,
                 filename:     `INV-L37-${cust}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, windowWidth: 800, scrollY: 0 }, 
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 1024, scrollY: 0 }, 
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            // Allow the browser 100ms to reflow the layout before capturing
             setTimeout(() => {
-                html2pdf().set(opt).from(paper).output('blob').then(blob => {
+                html2pdf().set(opt).from(paper).toPdf().output('blob').then(blob => {
                     // Restore visuals
-                    paper.style.transform = oldPTransform;
-                    paper.style.boxShadow = oldPShadow;
-                    paper.style.position = oldPos;
-                    paper.style.top = oldTop;
-                    paper.style.left = oldLeft;
-                    paper.style.zIndex = oldZ;
+                    paper.style.transform = oldTransform;
+                    paper.style.boxShadow = oldShadow;
+                    paper.style.width = oldWidth;
+                    wrapper.style.overflowX = oldWOverflow;
+                    modalBody.style.overflowY = oldMOverflow;
                     
                     resolve({ blob, filename: opt.filename });
                 });
