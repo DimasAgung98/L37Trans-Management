@@ -868,34 +868,40 @@ const invoiceGenerator = {
     },
     downloadPDF() {
         const paper = document.querySelector('.invoice-print');
+        if(!paper) return;
         const cust = appState.currentInvoiceCustomer || 'Guest';
         
-        // Clone the invoice element for clean rendering (avoid mobile CSS interference)
-        const clone = paper.cloneNode(true);
-        clone.style.transform = 'none';
-        clone.style.boxShadow = 'none';
-        clone.style.width = '210mm';
-        clone.style.minHeight = '297mm';
-        clone.style.padding = '20mm';
-        clone.style.margin = '0';
-        clone.style.position = 'absolute';
-        clone.style.left = '-9999px';
-        clone.style.top = '0';
-        clone.style.background = '#fff';
-        clone.style.fontSize = '15px';
-        document.body.appendChild(clone);
+        // Save all current styles that mobile CSS may have overridden
+        const saved = {
+            transform: paper.style.transform,
+            transformOrigin: paper.style.transformOrigin,
+            boxShadow: paper.style.boxShadow,
+            width: paper.style.width,
+            minHeight: paper.style.minHeight,
+            marginBottom: paper.style.marginBottom
+        };
 
-        html2pdf().set({
-            margin:       0,
-            filename:     `INV-L37-${cust}.pdf`,
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, width: 794, windowWidth: 794 },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        }).from(clone).save().then(() => {
-            document.body.removeChild(clone);
-        }).catch(() => {
-            document.body.removeChild(clone);
-        });
+        // Force full A4 rendering (override any mobile scale)
+        paper.style.cssText += ';transform:none !important;transform-origin:top left !important;box-shadow:none !important;width:210mm !important;min-height:297mm !important;margin-bottom:0 !important;';
+
+        // Small delay to let browser repaint
+        setTimeout(() => {
+            html2pdf().set({
+                margin:       0,
+                filename:     `INV-L37-${cust}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, scrollY: 0, windowWidth: 794 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }).from(paper).save().then(() => {
+                // Restore original styles
+                paper.style.transform = saved.transform;
+                paper.style.transformOrigin = saved.transformOrigin;
+                paper.style.boxShadow = saved.boxShadow;
+                paper.style.width = saved.width;
+                paper.style.minHeight = saved.minHeight;
+                paper.style.marginBottom = saved.marginBottom;
+            });
+        }, 100);
     }
 }
 
