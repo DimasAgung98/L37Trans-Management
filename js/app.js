@@ -521,6 +521,7 @@ const firebaseLogic = {
             vehicle_name: document.getElementById('b_vehicle').selectedOptions[0].text,
             start_date: start,
             end_date: end,
+            trip_destination: document.getElementById('b_trip_destination').value.trim() || '',
             duration_days: calcData.days,
             route_fee_per_day: route_fee_per_day,
             route_fee: calcData.routeFeeTotal, // multiplied by duration
@@ -855,11 +856,12 @@ const invoiceGenerator = {
                         const routeFee = b.route_fee || 0;
                         const addons = b.addons || 0;
                         const baseRent = b.total_bill - driverFee - routeFee - addons;
+                        const destText = b.trip_destination ? ` (${b.trip_destination})` : '';
 
                         if (invType === 'include') {
                             return `
                                 <tr>
-                                    <td>Base Rent + Driver + Route Area + BBM/Tol/Addons</td>
+                                    <td>Sewa Kendaraan + Driver + BBM/Tol + Area${destText}</td>
                                     <td style="text-align:right; font-weight:500;">${ui.formatCurrency(b.total_bill)}</td>
                                 </tr>
                             `;
@@ -873,8 +875,8 @@ const invoiceGenerator = {
                             if(driverFee > 0) {
                                 rows += `<tr><td>Driver Fee (${days} Days)</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(driverFee)}</td></tr>`;
                             }
-                            if(routeFee > 0) {
-                                rows += `<tr><td>Route Area Fee (${days} Days)</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(routeFee)}</td></tr>`;
+                            if(routeFee > 0 || b.trip_destination) {
+                                rows += `<tr><td>Route Area Fee${destText}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(routeFee)}</td></tr>`;
                             }
                             if(b.addons_list && b.addons_list.length > 0) {
                                 rows += b.addons_list.map(a => `<tr><td>Addon: ${a.desc}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(a.cost)}</td></tr>`).join('');
@@ -1091,6 +1093,7 @@ appState.editBooking = (id) => {
         document.getElementById('b_vehicle').value = b.vehicle_id;
         document.getElementById('b_start').value = b.start_date;
         document.getElementById('b_end').value = b.end_date;
+        document.getElementById('b_trip_destination').value = b.trip_destination || '';
         document.getElementById('b_custom_rent').value = b.custom_rent_price && b.custom_rent_price > 0 ? b.custom_rent_price.toLocaleString('id-ID') : '';
         document.getElementById('b_opcost').value = (b.opcost || 0).toLocaleString('id-ID');
         
