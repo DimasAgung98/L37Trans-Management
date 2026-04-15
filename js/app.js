@@ -36,15 +36,20 @@ const ui = {
             document.getElementById('b_id').value = '';
             document.getElementById('calc_duration').innerText = '0 Days';
             document.getElementById('calc_bill').innerText = 'Rp 0';
-            document.getElementById('calc_investor').innerText = 'Rp 0';
+            document.getElementById('calc_ops_setoran').innerText = 'Rp 0';
             document.getElementById('calc_admin').innerText = 'Rp 0';
+            if(document.getElementById('b_actual_bbm')) document.getElementById('b_actual_bbm').value = '';
+            if(document.getElementById('b_actual_toll')) document.getElementById('b_actual_toll').value = '';
             document.getElementById('addons-container').innerHTML = `
                 <div class="form-row addon-item" style="margin-top:10px;">
                     <div class="col" style="flex:2;">
-                        <input type="text" class="addon-desc" placeholder="Addon Name (e.g. Driver)">
+                        <input type="text" class="addon-desc" placeholder="Addon Name (e.g. BBM)">
                     </div>
                     <div class="col" style="flex:1;">
-                        <input type="text" class="addon-cost" value="0" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                        <input type="text" class="addon-cost" value="0" placeholder="Harga Jual" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                    </div>
+                    <div class="col" style="flex:1;">
+                        <input type="text" class="addon-modal" value="0" placeholder="Modal Addon" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
                     </div>
                     <div style="display:flex; align-items:center; justify-content:center;">
                         <i class='bx bx-trash' style="color:var(--danger); cursor:pointer; font-size:20px;" onclick="this.parentElement.parentElement.remove(); calculator.updateSplit()"></i>
@@ -64,48 +69,144 @@ const ui = {
         const b = appState.bookings.find(x => x.id === bId);
         if(!b) return;
 
-        let grossRent = (b.total_bill || 0) - (b.addons || 0) - (b.route_fee || 0) - (b.driver_fee || 0);
-        let adminRentShare = grossRent - (b.investor_share || 0);
-        let pureNetProfit = adminRentShare - (b.opcost || 0);
+        // === Definisi Variabel ===
+        const baseRent    = (b.total_bill || 0) - (b.addons || 0) - (b.route_fee || 0) - (b.driver_fee || 0);
+        const investorShare = b.investor_share || 0;
+        const routeFee    = b.route_fee || 0;
+        const driverFee   = b.driver_fee || 0;
+        const addonBudget = b.addons || 0;    // Harga jual Addon ke pelanggan
+        const addonActual = b.realized_operational || b.addons_modal || 0; // Biaya riil / fallback ke modal
+        const hasActual   = !!b.realized_operational;
+
+        // === Sumber Laba ===
+        const labaSewaUnit  = baseRent - investorShare;
+        const labaRute      = routeFee;  // 100% masuk ke Admin
+        const labaOperasional = addonBudget - addonActual; // Sisa budget yang tidak terpakai
+        // Driver fee = pass-through (collected from customer = paid to driver → net 0)
+        const netProfit     = labaSewaUnit + labaRute + labaOperasional;
 
         let breakdownHTML = `
-            <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;'>
-                <span style="font-size:15px; color:#1e293b;">Total Transaksi (Gross):</span>
-                <span style="font-weight:bold; color:#1e293b; font-size:16px;">${ui.formatCurrency(b.total_bill || 0)}</span>
-            </div>
-            <div style='display:flex; justify-content:space-between; align-items:center; color:#64748b; font-size:13px; margin-bottom: 4px;'>
-                <span>Addons Gross (-):</span> <span>${ui.formatCurrency(b.addons || 0)}</span>
-            </div>
-            <div style='display:flex; justify-content:space-between; align-items:center; color:#64748b; font-size:13px; margin-bottom: 4px;'>
-                <span>Route (x ${b.duration_days || 1} Days) (-):</span> <span>${ui.formatCurrency(b.route_fee || 0)}</span>
-            </div>
-            <div style='display:flex; justify-content:space-between; align-items:center; color:#64748b; font-size:13px; margin-bottom: 8px;'>
-                <span>Driver (x ${b.duration_days || 1} Days) (-):</span> <span>${ui.formatCurrency(b.driver_fee || 0)}</span>
-            </div>
-            <div style='display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:8px 10px; border-radius:6px; font-weight:600; font-size:14px; border:1px solid #e2e8f0;'>
-                <span>Pure Rent (Sewa x ${b.duration_days || 1} Days):</span> <span>${ui.formatCurrency(grossRent)}</span>
+            <!-- BLOK A: Total Income -->
+            <div style="margin-bottom:16px;">
+                <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#64748b; margin-bottom:8px; display:flex; align-items:center; gap:5px;"><i class='bx bx-trending-up' style="color:#0369a1;"></i> A. Total Pendapatan dari Pelanggan</div>
+                <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px;">
+                    <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;"><span style="color:#64748b;">Biaya Sewa Unit:</span><span style="font-weight:600;">${ui.formatCurrency(baseRent)}</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;"><span style="color:#64748b;">Budget Operasional (BBM/Tol):</span><span style="font-weight:600;">${ui.formatCurrency(addonBudget)}</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;"><span style="color:#64748b;">Biaya Area/Rute:</span><span style="font-weight:600;">${ui.formatCurrency(routeFee)}</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:#64748b;">Gaji Driver:</span><span style="font-weight:600;">${ui.formatCurrency(driverFee)}</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:bold; padding-top:8px; margin-top:8px; border-top:1px solid #bfdbfe;"><span>Total Gross:</span><span style="color:#0369a1;">${ui.formatCurrency(b.total_bill || 0)}</span></div>
+                </div>
             </div>
 
-            <hr style='border:1px dashed #cbd5e1; margin:12px 0'>
-
-            <div style='display:flex; justify-content:space-between; align-items:center; color:#d97706; font-size:14px; margin-bottom: 8px;'>
-                <span>Investor Share (-):</span> <span style="font-weight:600;">${ui.formatCurrency(b.investor_share || 0)}</span>
+            <!-- BLOK B: Deductions / Uang Keluar -->
+            <div style="margin-bottom:16px;">
+                <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#64748b; margin-bottom:8px; display:flex; align-items:center; gap:5px;"><i class='bx bx-minus-circle' style="color:#dc2626;"></i> B. Uang yang Keluar dari Admin</div>
+                <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:12px;">
+                    <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                        <span style="color:#64748b;">Setoran Investor (Pemilik Unit):</span><span style="font-weight:600; color:#d97706;">${ui.formatCurrency(investorShare)}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+                        <span style="color:#64748b;">Gaji Driver:</span><span style="font-weight:600; color:#d97706;">${ui.formatCurrency(driverFee)}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:13px;">
+                        <span style="color:#64748b;">Biaya Ops Riil ${hasActual ? '<span style="background:#dcfce7; color:#16a34a; font-size:10px; padding:1px 5px; border-radius:4px; font-weight:700;">AKTUAL</span>' : '<span style="background:#fef9c3; color:#854d0e; font-size:10px; padding:1px 5px; border-radius:4px; font-weight:700;">ESTIMASI</span>'}:</span>
+                        <span style="font-weight:600; color:#d97706;">${ui.formatCurrency(addonActual)}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:bold; padding-top:8px; margin-top:8px; border-top:1px solid #fed7aa;"><span>Total Pengeluaran:</span><span style="color:#dc2626;">${ui.formatCurrency(investorShare + driverFee + addonActual)}</span></div>
+                </div>
             </div>
-            <div style='display:flex; justify-content:space-between; align-items:center; background:#e0f2fe; padding:8px 10px; border-radius:6px; border:1px solid #bae6fd;'>
-                <span style="color:#0369a1; font-weight:600; font-size:14px;">Admin Rent Share:</span> 
-                <span style="color:#0369a1; font-weight:bold;">${ui.formatCurrency(adminRentShare)}</span>
+
+            <!-- BLOK C: Rincian Sumber Laba -->
+            <div style="margin-bottom:16px;">
+                <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#64748b; margin-bottom:8px; display:flex; align-items:center; gap:5px;">
+                    <i class='bx bx-line-chart' style="color:#10b981;"></i> C. Rincian Sumber Laba
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+
+                    <!-- Laba Sewa Unit -->
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #0369a1; border-radius:8px; padding:10px 14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                            <span style="font-weight:600; font-size:13px; color:#0369a1; display:flex; align-items:center; gap:5px;"><i class='bx bx-car'></i> Laba Sewa Unit</span>
+                            <span style="font-size:11px; color:#64748b;">Sewa - Investor</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:12px; color:#64748b; margin-bottom:2px;"><span>Harga Sewa:</span><span>${ui.formatCurrency(baseRent)}</span></div>
+                        <div style="display:flex; justify-content:space-between; font-size:12px; color:#dc2626; margin-bottom:5px;"><span>Setoran Investor:</span><span>(${ui.formatCurrency(investorShare)})</span></div>
+                        <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:700; border-top:1px dashed #e2e8f0; padding-top:5px; color:${labaSewaUnit >= 0 ? '#10b981' : '#dc2626'};">
+                            <span>= Laba Sewa</span><span>${ui.formatCurrency(labaSewaUnit)}</span>
+                        </div>
+                    </div>
+
+                    <!-- Laba Biaya Rute -->
+                    ${routeFee > 0 ? `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #7c3aed; border-radius:8px; padding:10px 14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                            <span style="font-weight:600; font-size:13px; color:#7c3aed; display:flex; align-items:center; gap:5px;"><i class='bx bx-map'></i> Laba Biaya Rute</span>
+                            <span style="font-size:11px; color:#64748b;">100% Admin</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:12px; color:#64748b; margin-bottom:5px;"><span>Biaya Area/Rute:</span><span>${ui.formatCurrency(routeFee)}</span></div>
+                        <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:700; border-top:1px dashed #e2e8f0; padding-top:5px; color:#10b981;">
+                            <span>= Laba Rute</span><span>${ui.formatCurrency(labaRute)}</span>
+                        </div>
+                    </div>` : ''}
+
+                    <!-- Per-Item Addons (granular) -->
+                    ${(() => {
+                        const addonsList = b.addons_list || [];
+                        if (addonsList.length === 0 && addonBudget > 0) {
+                            // Fallback satu baris agregat
+                            return `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #059669; border-radius:8px; padding:10px 14px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                                    <span style="font-weight:600; font-size:13px; color:#059669; display:flex; align-items:center; gap:5px;"><i class='bx bx-gas-pump'></i> Laba Operasional</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:12px; color:#64748b; margin-bottom:2px;"><span>Budget:</span><span>${ui.formatCurrency(addonBudget)}</span></div>
+                                <div style="display:flex; justify-content:space-between; font-size:12px; color:#dc2626; margin-bottom:5px;"><span>Biaya Riil:</span><span>(${ui.formatCurrency(addonActual)})</span></div>
+                                <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:700; border-top:1px dashed #e2e8f0; padding-top:5px; color:${labaOperasional >= 0 ? '#10b981' : '#dc2626'};"><span>= Laba Ops</span><span>${ui.formatCurrency(labaOperasional)}</span></div>
+                            </div>`;
+                        }
+                        return addonsList.map((item, idx) => {
+                            const itemBudget = item.cost || 0;
+                            const itemRiil   = item.modal || 0; // kolom 3 = Riil Terpakai
+                            const hasRiil    = itemRiil > 0;
+                            const itemLaba   = itemBudget - itemRiil;
+
+                            const badge = hasRiil
+                                ? '<span style="background:#dcfce7;color:#16a34a;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;">TERISI</span>'
+                                : '<span style="background:#fef9c3;color:#854d0e;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;">BELUM DIISI</span>';
+
+                            return `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #059669; border-radius:8px; padding:10px 14px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; flex-wrap:wrap; gap:4px;">
+                                    <span style="font-weight:600; font-size:13px; color:#059669; display:flex; align-items:center; gap:5px;"><i class='bx bx-gas-pump'></i> ${item.desc || 'Add-on ' + (idx+1)}</span>
+                                    ${badge}
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:12px; color:#64748b; margin-bottom:2px;"><span>Budget dari Customer:</span><span>${ui.formatCurrency(itemBudget)}</span></div>
+                                <div style="display:flex; justify-content:space-between; font-size:12px; color:#dc2626; margin-bottom:5px;"><span>Riil Terpakai:</span><span>${hasRiil ? '(' + ui.formatCurrency(itemRiil) + ')' : '<em style="color:#94a3b8;">Belum diisi</em>'}</span></div>
+                                <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:700; border-top:1px dashed #e2e8f0; padding-top:5px; color:${!hasRiil ? '#94a3b8' : (itemLaba >= 0 ? '#10b981' : '#dc2626')};"><span>= Laba ${item.desc || 'Addon'}</span><span>${!hasRiil ? '—' : ui.formatCurrency(itemLaba)}</span></div>
+                            </div>`;
+                        }).join('');
+                    })()}
+
+                    <!-- Driver: Pass-through (collected from customer = paid to driver) -->
+                    ${driverFee > 0 ? `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #64748b; border-radius:8px; padding:10px 14px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                            <span style="font-weight:600; font-size:13px; color:#475569; display:flex; align-items:center; gap:5px;"><i class='bx bx-user'></i> Gaji Driver</span>
+                            <span style="font-size:11px; background:#f1f5f9; color:#64748b; padding:1px 8px; border-radius:4px; font-weight:600;">PASS-THROUGH</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:12px; color:#64748b; margin-bottom:2px;"><span>Dari Customer:</span><span>${ui.formatCurrency(driverFee)}</span></div>
+                        <div style="display:flex; justify-content:space-between; font-size:12px; color:#dc2626; margin-bottom:5px;"><span>Dibayarkan ke Driver:</span><span>(${ui.formatCurrency(driverFee)})</span></div>
+                        <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:700; border-top:1px dashed #e2e8f0; padding-top:5px; color:#64748b;">
+                            <span>= Laba Driver</span><span>Rp 0</span>
+                        </div>
+                    </div>` : ''}
+
+                </div>
             </div>
 
-            <hr style='border:1px dashed #cbd5e1; margin:12px 0'>
-
-            <div style='display:flex; justify-content:space-between; align-items:center; color:#dc2626; font-size:14px;'>
-                <span>Operational Cost (-):</span> <span style="font-weight:600;">${ui.formatCurrency(b.opcost || 0)}</span>
-            </div>
-
-            <hr style='border:1px solid #94a3b8; margin:12px 0'>
-
-            <div style='display:flex; justify-content:space-between; align-items:center; font-weight:bold; font-size:18px; color:#1e293b; margin-top:8px;'>
-                <span>Pure Net Profit:</span> <span style="color:#10b981;">${ui.formatCurrency(pureNetProfit)}</span>
+            <!-- TOTAL NET PROFIT -->
+            <div style="display:flex; justify-content:space-between; align-items:center; background:linear-gradient(135deg, #f0fdf4, #dcfce7); padding:16px; border-radius:10px; border:2px solid #86efac; flex-wrap:wrap; gap:6px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:22px;">💰</span>
+                    <span style="color:#166534; font-weight:700; font-size:15px;">Total Laba Bersih Admin</span>
+                </div>
+                <span style="color:#16a34a; font-weight:800; font-size:22px;">${ui.formatCurrency(netProfit)}</span>
             </div>
         `;
 
@@ -117,13 +218,16 @@ const ui = {
         const container = document.getElementById('addons-container');
         const d = document.createElement('div');
         d.className = 'form-row addon-item';
-        d.style.marginTop = '10px';
+        d.style.marginTop = '6px';
         d.innerHTML = `
             <div class="col" style="flex:2;">
-                <input type="text" class="addon-desc" placeholder="Addon Name (e.g. Driver Area B)">
+                <input type="text" class="addon-desc" placeholder="e.g. BBM">
             </div>
             <div class="col" style="flex:1;">
-                <input type="text" class="addon-cost" value="0" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                <input type="text" class="addon-cost" value="0" placeholder="Budget" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+            </div>
+            <div class="col" style="flex:1;">
+                <input type="text" class="addon-modal" value="0" placeholder="Riil Terpakai" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
             </div>
             <div style="display:flex; align-items:center; justify-content:center;">
                 <i class='bx bx-trash' style="color:var(--danger); cursor:pointer; font-size:20px;" onclick="this.parentElement.parentElement.remove(); calculator.updateSplit()"></i>
@@ -452,16 +556,18 @@ const firebaseLogic = {
         const route_fee = parseFloat(document.getElementById('b_route').selectedOptions[0].dataset.fee);
         
         let addons_list = [];
-        let addonsSum = 0;
+        let addonsSellSum = 0;
+        let addonsModalSum = 0;
         let addonsDescList = [];
 
         document.querySelectorAll('#addons-container .addon-item').forEach(item => {
             const desc = item.querySelector('.addon-desc').value.trim();
-            const costText = item.querySelector('.addon-cost').value;
-            const cost = parseFloat(ui.parseCurrency(costText || '0'));
-            if(desc || cost > 0) {
-                addons_list.push({ desc: desc || 'Addon', cost: cost });
-                addonsSum += cost;
+            const cost = parseFloat(ui.parseCurrency(item.querySelector('.addon-cost').value || '0'));
+            const modal = parseFloat(ui.parseCurrency(item.querySelector('.addon-modal').value || '0'));
+            if(desc || cost > 0 || modal > 0) {
+                addons_list.push({ desc: desc || 'Addon', cost: cost, modal: modal });
+                addonsSellSum += cost;
+                addonsModalSum += modal;
                 if(desc) addonsDescList.push(desc);
             }
         });
@@ -527,13 +633,16 @@ const firebaseLogic = {
             route_fee: calcData.routeFeeTotal, // multiplied by duration
             driver_fee_per_day: driver_fee_per_day,
             driver_fee: calcData.driverFeeTotal, // multiplied by duration
-            addons: addonsSum,
+            addons: calcData.addonsSellTotal,
+            addons_modal: calcData.addonsModalTotal,
             addons_desc: addons_desc,
             addons_list: addons_list,
             opcost: calcData.opcost,
             total_bill: calcData.totalBill,
             investor_share: calcData.investorShare,
             admin_profit: calcData.adminNetProfit,
+            dana_ops_setoran: calcData.danaOpsSetoran,
+            realized_operational: calcData.realizedOperational,
             custom_rent_price: customRentRaw > 0 ? customRentRaw : 0,
             status_payment: paymentStat,
             updated_at: new Date().toISOString()
@@ -620,41 +729,73 @@ const firebaseLogic = {
         const tbody = document.querySelector('#revenueTable tbody');
         tbody.innerHTML = '';
         
-        let totalOmzet = 0;
         let totalInvestor = 0;
         let totalAdmin = 0;
 
-        // Only process paid bookings
-        const paidBookings = appState.bookings.filter(b => b.status_payment === 'paid');
+        const preset = document.getElementById('rev-filter-preset') ? document.getElementById('rev-filter-preset').value : 'all';
+        const customStart = document.getElementById('rev-filter-start');
+        const customEnd = document.getElementById('rev-filter-end');
+
+        if(document.getElementById('rev-filter-custom-dates')) {
+            document.getElementById('rev-filter-custom-dates').style.display = preset === 'custom' ? 'flex' : 'none';
+        }
+
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+        const paidBookings = appState.bookings.filter(b => {
+            if (b.status_payment !== 'paid') return false;
+            const bDate = new Date(b.created_at || b.start_date);
+            
+            if (preset === 'today') return bDate >= startOfDay;
+            if (preset === 'month') return bDate >= startOfMonth;
+            if (preset === 'year') return bDate >= startOfYear;
+            if (preset === 'custom') {
+                if (customStart && customEnd && customStart.value && customEnd.value) {
+                    const cStart = new Date(customStart.value);
+                    cStart.setHours(0,0,0,0);
+                    const cEnd = new Date(customEnd.value);
+                    cEnd.setHours(23,59,59,999);
+                    return bDate >= cStart && bDate <= cEnd;
+                }
+                return false; // Wait for user to select both dates
+            }
+            return true;
+        });
+
+        if(paidBookings.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:#94a3b8; font-style:italic;">Tidak ada data transaksi pada periode ini.</td></tr>`;
+        }
 
         paidBookings.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).forEach(b => {
-            let grossRent = (b.total_bill || 0) - (b.addons || 0) - (b.route_fee || 0) - (b.driver_fee || 0);
-            let adminRentShare = grossRent - (b.investor_share || 0);
-            let pureNetProfit = adminRentShare - (b.opcost || 0);
+            const baseRent = (b.total_bill || 0) - (b.addons || 0) - (b.route_fee || 0) - (b.driver_fee || 0);
+            const addonActual = b.realized_operational || b.addons_modal || 0;
+            // Driver fee = pass-through (collected from customer = paid to driver → net 0)
+            const netProfit = (baseRent - (b.investor_share || 0)) + (b.route_fee || 0) + ((b.addons || 0) - addonActual);
 
-            totalOmzet += (b.total_bill || 0); // Include addons internally for OMZET (Gross)
             totalInvestor += (b.investor_share || 0);
-            totalAdmin += pureNetProfit; // Only calculate pure net profit
+            totalAdmin += netProfit;
 
             let dateObj = new Date(b.created_at || b.start_date);
             let dateStr = dateObj.toLocaleDateString('id-ID');
+
+            const profitColor = netProfit >= 0 ? '#10b981' : '#dc2626';
 
             tbody.innerHTML += `
                 <tr>
                     <td>${dateStr}</td>
                     <td><strong>${b.customer_name}</strong><br><small style="color:var(--text-muted)">${b.vehicle_name}</small></td>
-                    <td class="accent-text" style="color:#27ae60;">${ui.formatCurrency(b.addons || 0)}</td>
-                    <td class="accent-text" style="color:#0ea5e9;">${ui.formatCurrency(b.route_fee || 0)}</td>
                     <td style="color:#f39c12">${ui.formatCurrency(b.investor_share || 0)}</td>
-                    <td style="color:var(--text-main); font-weight:600; cursor:pointer;" onclick="ui.openBreakdown('${b.id}')" title="Click to view breakdown">
-                        <span style="border-bottom: 1px dashed var(--text-main);">${ui.formatCurrency(pureNetProfit)}</span> <i class='bx bx-info-circle' style="color:#64748b; font-size:16px; vertical-align:middle;"></i>
+                    <td style="color:${profitColor}; font-weight:700; cursor:pointer;" onclick="ui.openBreakdown('${b.id}')" title="Klik untuk detail">
+                        <span style="border-bottom: 1px dashed ${profitColor};">${ui.formatCurrency(netProfit)}</span> <i class='bx bx-bar-chart-alt-2' style="font-size:15px; vertical-align:middle;"></i>
                     </td>
                     <td><button class="btn btn-danger" style="padding: 2px 6px;" onclick="firebaseLogic.deleteBooking('${b.id}')"><i class='bx bx-trash'></i></button></td>
                 </tr>
             `;
         });
 
-        document.getElementById('rev-total-omzet').innerText = ui.formatCurrency(totalOmzet);
         document.getElementById('rev-total-investor').innerText = ui.formatCurrency(totalInvestor);
         document.getElementById('rev-total-profit').innerText = ui.formatCurrency(totalAdmin);
     },
@@ -720,13 +861,17 @@ const calculator = {
         
         const routeFeePerDay = parseFloat(document.getElementById('b_route').selectedOptions[0].dataset.fee || 0);
         const driverFeePerDay = parseFloat(ui.parseCurrency(document.getElementById('b_driver_fee').value || '0'));
-        let addonsSum = 0;
-        document.querySelectorAll('#addons-container .addon-cost').forEach(el => {
-            addonsSum += parseFloat(ui.parseCurrency(el.value || '0'));
+        let addonsSellTotal = 0;
+        let addonsModalTotal = 0;
+        document.querySelectorAll('#addons-container .addon-item').forEach(el => {
+            addonsSellTotal += parseFloat(ui.parseCurrency(el.querySelector('.addon-cost').value || '0'));
+            addonsModalTotal += parseFloat(ui.parseCurrency(el.querySelector('.addon-modal').value || '0'));
         });
 
-        const addons = addonsSum;
         const opcost = ui.parseCurrency(document.getElementById('b_opcost').value || '0');
+
+        // Riil Terpakai = sum of addon-modal fields (kolom 3 per item)
+        const realizedOperational = addonsModalTotal;
 
         // Calc Duration (Inclusive Days)
         const startDate = new Date(start);
@@ -746,22 +891,32 @@ const calculator = {
         const routeFeeTotal = routeFeePerDay * days;
         const driverFeeTotal = driverFeePerDay * days;
 
-        const baseBill = sellPrice * days;
-        const totalBill = baseBill + addons + routeFeeTotal + driverFeeTotal;
+        const baseBill = sellPrice * days;  // Base_Rent
+        const totalBill = baseBill + addonsSellTotal + routeFeeTotal + driverFeeTotal;
         
         const investorShare = modPrice * days;
-        const adminNetProfit = totalBill - investorShare - opcost;
+        
+        // Net_Profit = (Base_Rent - Investor_Share) + Route_Fee + (Addon_Budget - Riil_Terpakai)
+        // Driver fee = pass-through: collected from customer = paid to driver → net 0
+        const labaSewaUnit    = baseBill - investorShare;
+        const labaRute        = routeFeeTotal;
+        const labaOperasional = addonsSellTotal - realizedOperational;
+        const labaDriver      = 0; // driverFee in = driverFee out → tidak mempengaruhi profit
+        const adminNetProfit  = labaSewaUnit + labaRute + labaOperasional;
+
+        // Dana Ops & Setoran tetap untuk referensi kas
+        const danaOpsSetoran  = investorShare + realizedOperational + driverFeeTotal + opcost;
 
         // UI Update
-        document.getElementById('calc_duration').innerText = days.toFixed(2) + " Days";
-        document.getElementById('calc_bill').innerText = ui.formatCurrency(totalBill);
-        document.getElementById('calc_investor').innerText = ui.formatCurrency(investorShare);
-        document.getElementById('calc_admin').innerText = ui.formatCurrency(adminNetProfit);
+        if(document.getElementById('calc_duration')) document.getElementById('calc_duration').innerText = days.toFixed(2) + " Days";
+        if(document.getElementById('calc_bill')) document.getElementById('calc_bill').innerText = ui.formatCurrency(totalBill);
+        if(document.getElementById('calc_ops_setoran')) document.getElementById('calc_ops_setoran').innerText = ui.formatCurrency(danaOpsSetoran);
+        if(document.getElementById('calc_admin')) document.getElementById('calc_admin').innerText = ui.formatCurrency(adminNetProfit);
 
-        this.currentData = { days, totalBill, investorShare, adminNetProfit, addons, opcost, routeFeeTotal, driverFeeTotal };
+        this.currentData = { days, totalBill, investorShare, adminNetProfit, addonsSellTotal, addonsModalTotal, opcost, routeFeeTotal, driverFeeTotal, realizedOperational, danaOpsSetoran, labaSewaUnit, labaRute, labaOperasional };
     },
     getCalculations() {
-        return this.currentData || { days:0, totalBill:0, investorShare:0, adminNetProfit:0, addons:0, opcost:0 };
+        return this.currentData || { days:0, totalBill:0, investorShare:0, adminNetProfit:0, addonsSellTotal:0, addonsModalTotal:0, opcost:0, realizedOperational:0, danaOpsSetoran:0 };
     }
 };
 
@@ -1153,8 +1308,13 @@ function initCalendar() {
         appState.calendar.destroy();
     }
 
+    // Determine responsive height based on screen width
+    let calHeight = window.innerWidth <= 768 ? 'auto' : 'calc(100vh - 180px)';
+
     appState.calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
+        height: calHeight,
+        aspectRatio: 1.2, // Prevents cells from becoming too narrow/tall natively on mobile when auto
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
@@ -1226,13 +1386,17 @@ appState.editBooking = (id) => {
         container.innerHTML = '';
         if(b.addons_list && b.addons_list.length > 0) {
             b.addons_list.forEach(a => {
+                const modalStr = a.modal !== undefined ? a.modal.toLocaleString('id-ID') : '0';
                 container.innerHTML += `
                     <div class="form-row addon-item" style="margin-top:10px;">
                         <div class="col" style="flex:2;">
                             <input type="text" class="addon-desc" value="${a.desc}">
                         </div>
                         <div class="col" style="flex:1;">
-                            <input type="text" class="addon-cost" value="${a.cost.toLocaleString('id-ID')}" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                            <input type="text" class="addon-cost" value="${a.cost.toLocaleString('id-ID')}" placeholder="Harga Jual" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                        </div>
+                        <div class="col" style="flex:1;">
+                            <input type="text" class="addon-modal" value="${modalStr}" placeholder="Modal Addon" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
                         </div>
                         <div style="display:flex; align-items:center; justify-content:center;">
                             <i class='bx bx-trash' style="color:var(--danger); cursor:pointer; font-size:20px;" onclick="this.parentElement.parentElement.remove(); calculator.updateSplit()"></i>
@@ -1244,13 +1408,17 @@ appState.editBooking = (id) => {
             // Default 1 empty row if missing or old data
             const costStr = (b.addons || 0).toLocaleString('id-ID');
             const descStr = b.addons_desc || '';
+            const modalStr = (b.addons_modal || 0).toLocaleString('id-ID');
             container.innerHTML = `
                 <div class="form-row addon-item" style="margin-top:10px;">
                     <div class="col" style="flex:2;">
-                        <input type="text" class="addon-desc" value="${descStr}" placeholder="Addon Name (e.g. Driver)">
+                        <input type="text" class="addon-desc" value="${descStr}" placeholder="Addon Name (e.g. BBM)">
                     </div>
                     <div class="col" style="flex:1;">
-                        <input type="text" class="addon-cost" value="${costStr}" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                        <input type="text" class="addon-cost" value="${costStr}" placeholder="Harga Jual" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                    </div>
+                    <div class="col" style="flex:1;">
+                        <input type="text" class="addon-modal" value="${modalStr}" placeholder="Modal Addon" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
                     </div>
                     <div style="display:flex; align-items:center; justify-content:center;">
                         <i class='bx bx-trash' style="color:var(--danger); cursor:pointer; font-size:20px;" onclick="this.parentElement.parentElement.remove(); calculator.updateSplit()"></i>
@@ -1323,7 +1491,7 @@ appState.viewUnit = (id) => {
         const calEl = document.getElementById('ud_calendar');
         appState.unitCalendarInstance = new FullCalendar.Calendar(calEl, {
             initialView: 'dayGridMonth',
-            height: 380,
+            contentHeight: 'auto',
             events: eventsData,
             headerToolbar: {
                 left: 'prev,next',
