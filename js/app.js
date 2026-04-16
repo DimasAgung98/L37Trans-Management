@@ -70,7 +70,16 @@ const ui = {
         if(!b) return;
 
         // === Definisi Variabel ===
-        const baseRent    = (b.total_bill || 0) - (b.addons || 0) - (b.route_fee || 0) - (b.driver_fee || 0);
+        const totalGross  = b.total_gross !== undefined ? b.total_gross : b.total_bill || 0;
+        const discountAmount = b.discount_amount || 0;
+        const netTotal    = b.total_bill || 0;
+        const dpAmount    = b.dp_amount || 0;
+        let remainingBalance = b.remaining_balance !== undefined ? b.remaining_balance : (netTotal - dpAmount);
+        const isPaid = b.status_payment === 'paid';
+        if (isPaid) remainingBalance = 0;
+
+        // Calculate implicit baseRent ignoring discount
+        const baseRent    = totalGross - (b.addons || 0) - (b.route_fee || 0) - (b.driver_fee || 0);
         const investorShare = b.investor_share || 0;
         const routeFee    = b.route_fee || 0;
         const driverFee   = b.driver_fee || 0;
@@ -83,7 +92,7 @@ const ui = {
         const labaRute      = routeFee;  // 100% masuk ke Admin
         const labaOperasional = addonBudget - addonActual; // Sisa budget yang tidak terpakai
         // Driver fee = pass-through (collected from customer = paid to driver → net 0)
-        const netProfit     = labaSewaUnit + labaRute + labaOperasional;
+        const netProfit     = labaSewaUnit + labaRute + labaOperasional - discountAmount;
 
         let breakdownHTML = `
             <!-- BLOK A: Total Income -->
@@ -94,7 +103,9 @@ const ui = {
                     <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;"><span style="color:#64748b;">Budget Operasional (BBM/Tol):</span><span style="font-weight:600;">${ui.formatCurrency(addonBudget)}</span></div>
                     <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;"><span style="color:#64748b;">Biaya Area/Rute:</span><span style="font-weight:600;">${ui.formatCurrency(routeFee)}</span></div>
                     <div style="display:flex; justify-content:space-between; font-size:13px;"><span style="color:#64748b;">Gaji Driver:</span><span style="font-weight:600;">${ui.formatCurrency(driverFee)}</span></div>
-                    <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:bold; padding-top:8px; margin-top:8px; border-top:1px solid #bfdbfe;"><span>Total Gross:</span><span style="color:#0369a1;">${ui.formatCurrency(b.total_bill || 0)}</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:bold; padding-top:8px; margin-top:8px; border-top:1px solid #bfdbfe;"><span>Total Gross:</span><span style="color:#0369a1;">${ui.formatCurrency(totalGross)}</span></div>
+                    ${discountAmount > 0 ? `<div style="display:flex; justify-content:space-between; font-size:13px; color:#dc2626; margin-top:6px; margin-bottom:2px;"><span>Diskon:</span><span style="font-weight:bold;">(${ui.formatCurrency(discountAmount)})</span></div>
+                    <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:bold; padding-top:4px; margin-top:4px; border-top:1px dashed #bfdbfe;"><span>Net Total:</span><span style="color:#0369a1;">${ui.formatCurrency(netTotal)}</span></div>` : ''}
                 </div>
             </div>
 
@@ -208,6 +219,18 @@ const ui = {
                 </div>
                 <span style="color:#16a34a; font-weight:800; font-size:22px;">${ui.formatCurrency(netProfit)}</span>
             </div>
+
+            <!-- SISA TAGIHAN -->
+            <div style="display:flex; justify-content:space-between; align-items:center; background:${isPaid ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' : 'linear-gradient(135deg, #f0f9ff, #e0f2fe)'}; padding:16px; border-radius:10px; border:2px solid ${isPaid ? '#86efac' : '#7dd3fc'}; flex-wrap:wrap; gap:6px; margin-top:12px;">
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:22px;">💳</span>
+                        <span style="color:${isPaid ? '#15803d' : '#0369a1'}; font-weight:700; font-size:15px;">Sisa Tagihan (Pelunasan)</span>
+                    </div>
+                    ${isPaid ? `<div style="font-size:11px; color:#16a34a; margin-left:38px; font-weight:700; text-transform:uppercase;">STATUS: LUNAS</div>` : (dpAmount > 0 ? `<div style="font-size:12px; color:#0284c7; margin-left:38px;">Dikurangi DP: ${ui.formatCurrency(dpAmount)}</div>` : '')}
+                </div>
+                <span style="color:${isPaid ? '#16a34a' : '#0284c7'}; font-weight:800; font-size:22px;">${ui.formatCurrency(remainingBalance)}</span>
+            </div>
         `;
 
         document.getElementById('breakdown_title').innerText = "Profit Breakdown: " + b.customer_name;
@@ -227,7 +250,7 @@ const ui = {
                 <input type="text" class="addon-cost" value="0" placeholder="Budget" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
             </div>
             <div class="col" style="flex:1;">
-                <input type="text" class="addon-modal" value="0" placeholder="Riil Terpakai" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                <input type="text" class="addon-modal" value="0" placeholder="Terpakai" style="background:#e2e8f0; border-color:#cbd5e1; color:#334155;" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
             </div>
             <div style="display:flex; align-items:center; justify-content:center;">
                 <i class='bx bx-trash' style="color:var(--danger); cursor:pointer; font-size:20px;" onclick="this.parentElement.parentElement.remove(); calculator.updateSplit()"></i>
@@ -621,6 +644,12 @@ const firebaseLogic = {
         // Finalize state via calculator module data
         const calcData = calculator.getCalculations();
 
+        let existingDpAmount = 0;
+        if (id) {
+            const existingB = appState.bookings.find(x => x.id === id);
+            if (existingB) existingDpAmount = existingB.dp_amount || 0;
+        }
+
         const data = {
             customer_name: customer,
             vehicle_id: v_id,
@@ -638,7 +667,13 @@ const firebaseLogic = {
             addons_desc: addons_desc,
             addons_list: addons_list,
             opcost: calcData.opcost,
-            total_bill: calcData.totalBill,
+            total_gross: calcData.totalGross, // New
+            discount_type: document.getElementById('b_discount_type') ? document.getElementById('b_discount_type').value : 'fixed',
+            discount_value: document.getElementById('b_discount_value') ? parseFloat(ui.parseCurrency(document.getElementById('b_discount_value').value || '0')) : 0,
+            discount_amount: calcData.discountAmount, // New
+            total_bill: calcData.totalBill, // This is Net Total now
+            dp_amount: existingDpAmount, 
+            remaining_balance: calcData.totalBill - existingDpAmount, 
             investor_share: calcData.investorShare,
             admin_profit: calcData.adminNetProfit,
             dana_ops_setoran: calcData.danaOpsSetoran,
@@ -700,25 +735,104 @@ const firebaseLogic = {
         }
     },
 
+    async recordDP(id) {
+        const b = appState.bookings.find(x => x.id === id);
+        if(!b) return;
+
+        const { value: dpNominalStr } = await Swal.fire({
+            title: b.dp_amount > 0 ? 'Edit Downpayment (DP)' : 'Record Downpayment (DP)',
+            input: 'text',
+            inputValue: b.dp_amount ? b.dp_amount.toLocaleString('id-ID') : '',
+            inputLabel: 'Masukkan nominal DP (Rp). Isi 0 untuk batal DP.',
+            inputPlaceholder: 'Contoh: 500.000',
+            showCancelButton: true,
+            confirmButtonText: 'Save DP',
+            didOpen: () => {
+                const input = Swal.getInput();
+                input.addEventListener('input', () => {
+                    ui.formatInputCurrency(input);
+                });
+            },
+            inputValidator: (value) => {
+                const parsedVal = ui.parseCurrency(value);
+                if (parsedVal < 0) {
+                    return 'Nominal DP tidak valid!';
+                }
+                if (parsedVal > (b.total_bill || 0)) {
+                    return 'Nominal DP tidak boleh melebihi Total Tagihan!';
+                }
+            }
+        });
+
+        if (dpNominalStr !== undefined) {
+            const dpAmount = ui.parseCurrency(dpNominalStr);
+            const remainingBalance = (b.total_bill || 0) - dpAmount;
+            const newStatus = dpAmount > 0 ? 'downpayment' : 'unpaid';
+
+            try {
+                await updateDoc(doc(db, "bookings", id), {
+                    dp_amount: dpAmount,
+                    remaining_balance: remainingBalance,
+                    status_payment: newStatus,
+                    updated_at: new Date().toISOString()
+                });
+                
+                Swal.fire({
+                    title: 'DP Updated!',
+                    text: `Berhasil mencatat DP sebesar ${ui.formatCurrency(dpAmount)}`,
+                    icon: 'success',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+                
+                this.loadDashboard();
+            } catch(e) {
+                Swal.fire('Error', e.message, 'error');
+            }
+        }
+    },
+
     renderBookings() {
         const tbody = document.querySelector('#bookingsTable tbody');
         tbody.innerHTML = '';
-        appState.bookings.forEach(b => {
+        appState.bookings.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).forEach(b => {
+            const status = (b.status_payment === 'pending' ? 'unpaid' : (b.status_payment || 'unpaid')).toLowerCase();
+            let sisa = b.remaining_balance !== undefined ? b.remaining_balance : (b.total_bill - (b.dp_amount || 0));
+            if (status === 'paid') sisa = 0;
+
+            let badgeClass = '';
+            if (status === 'paid') badgeClass = 'background:#dcfce7; color:#16a34a; border: 1px solid #86efac;'; // Green
+            else if (status === 'downpayment') badgeClass = 'background:#fef9c3; color:#a16207; border: 1px solid #fde047;'; // Yellow
+            else if (status === 'unpaid') badgeClass = 'background:#fee2e2; color:#b91c1c; border: 1px solid #fca5a5;'; // Red
+            else badgeClass = 'background:#f1f5f9; color:#64748b; border: 1px solid #cbd5e1;'; // Default
+
+            let actionBtns = '';
+            if (status === 'unpaid') {
+                actionBtns += `<button class="btn btn-secondary" style="background:#f59e0b; color:#fff; border:none;" onclick="firebaseLogic.recordDP('${b.id}')" title="Record DP">Record DP</button>`;
+                actionBtns += `<button class="btn btn-primary" style="background:#10b981; border:none;" onclick="firebaseLogic.updatePaymentStatus('${b.id}', 'paid')" title="Finalize Payment">Finalize</button>`;
+            } else if (status === 'downpayment') {
+                actionBtns += `<button class="btn btn-secondary" style="background:#8b5cf6; color:#fff; border:none;" onclick="firebaseLogic.recordDP('${b.id}')" title="Edit DP">Edit DP</button>`;
+                actionBtns += `<button class="btn btn-primary" style="background:#10b981; border:none;" onclick="firebaseLogic.updatePaymentStatus('${b.id}', 'paid')" title="Finalize Payment">Finalize</button>`;
+            }
+            
+            // Always show invoice button
+            actionBtns += `<button class="btn btn-primary" style="background:#0284c7; border:none;" onclick="invoiceGenerator.generate('${b.id}')"><i class='bx bxs-file-pdf'></i> Invoice</button>`;
+
             tbody.innerHTML += `
                 <tr>
                     <td>${b.customer_name}</td>
                     <td>${b.vehicle_name}</td>
-                    <td>${b.duration_days.toFixed(1)} Days</td>
-                    <td class="accent-text">${ui.formatCurrency(b.total_bill)}</td>
-                    <td><span class="badge ${b.status_payment === 'paid' ? 'badge-available' : (b.status_payment === 'pending' || b.status_payment === 'on-hold' ? 'badge-maintenance' : '')}">${b.status_payment ? b.status_payment.toUpperCase() : 'N/A'}</span></td>
-                    <td style="display: flex; gap: 6px;">
-                        ${b.status_payment !== 'paid' 
-                            ? `<button class="btn btn-primary" style="background:#27ae60" onclick="firebaseLogic.updatePaymentStatus('${b.id}', 'paid')" title="Mark as Paid"><i class='bx bx-check-double'></i></button>`
-                            : `<button class="btn btn-secondary" onclick="firebaseLogic.updatePaymentStatus('${b.id}', 'pending')" title="Revert to Pending"><i class='bx bx-undo'></i></button>`
-                        }
-                        <button class="btn btn-secondary" onclick="appState.editBooking('${b.id}')"><i class='bx bx-edit'></i></button>
-                        <button class="btn btn-danger" onclick="firebaseLogic.deleteBooking('${b.id}')"><i class='bx bx-trash'></i></button>
-                        <button class="btn btn-primary" onclick="invoiceGenerator.generate('${b.id}')"><i class='bx bxs-file-pdf'></i> Invoice</button>
+                    <td>${b.duration_days.toFixed(1)} Hari</td>
+                    <td class="accent-text" style="color:#0f766e;">${ui.formatCurrency(b.total_bill)}</td>
+                    <td style="color: ${sisa > 0 ? '#dc2626' : '#16a34a'}; font-weight: 600;">${ui.formatCurrency(sisa)}</td>
+                    <td><span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; ${badgeClass}">${status}</span></td>
+                    <td style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        ${actionBtns}
+                        ${status === 'paid' || status === 'downpayment' ? `<button class="btn btn-secondary" onclick="firebaseLogic.updatePaymentStatus('${b.id}', 'unpaid')" title="Revert to Unpaid"><i class='bx bx-undo'></i></button>` : ''}
+                        <button class="btn btn-secondary" onclick="appState.editBooking('${b.id}')" title="Edit Booking"><i class='bx bx-edit'></i></button>
+                        <button class="btn btn-danger" onclick="firebaseLogic.deleteBooking('${b.id}')" title="Delete Booking"><i class='bx bx-trash'></i></button>
                     </td>
                 </tr>
             `;
@@ -892,7 +1006,21 @@ const calculator = {
         const driverFeeTotal = driverFeePerDay * days;
 
         const baseBill = sellPrice * days;  // Base_Rent
-        const totalBill = baseBill + addonsSellTotal + routeFeeTotal + driverFeeTotal;
+        const totalGross = baseBill + addonsSellTotal + routeFeeTotal + driverFeeTotal;
+
+        // Discount Logic
+        const discountType = document.getElementById('b_discount_type') ? document.getElementById('b_discount_type').value : 'fixed';
+        const discountValueInput = document.getElementById('b_discount_value') ? parseFloat(ui.parseCurrency(document.getElementById('b_discount_value').value || '0')) : 0;
+        let discountAmount = 0;
+        
+        if (discountType === 'percentage') {
+            discountAmount = totalGross * (discountValueInput / 100);
+        } else {
+            discountAmount = discountValueInput;
+        }
+
+        if (discountAmount > totalGross) discountAmount = totalGross;
+        const totalBill = totalGross - discountAmount;
         
         const investorShare = modPrice * days;
         
@@ -902,7 +1030,7 @@ const calculator = {
         const labaRute        = routeFeeTotal;
         const labaOperasional = addonsSellTotal - realizedOperational;
         const labaDriver      = 0; // driverFee in = driverFee out → tidak mempengaruhi profit
-        const adminNetProfit  = labaSewaUnit + labaRute + labaOperasional;
+        const adminNetProfit  = labaSewaUnit + labaRute + labaOperasional - discountAmount;
 
         // Dana Ops & Setoran tetap untuk referensi kas
         const danaOpsSetoran  = investorShare + realizedOperational + driverFeeTotal + opcost;
@@ -913,10 +1041,15 @@ const calculator = {
         if(document.getElementById('calc_ops_setoran')) document.getElementById('calc_ops_setoran').innerText = ui.formatCurrency(danaOpsSetoran);
         if(document.getElementById('calc_admin')) document.getElementById('calc_admin').innerText = ui.formatCurrency(adminNetProfit);
 
-        this.currentData = { days, totalBill, investorShare, adminNetProfit, addonsSellTotal, addonsModalTotal, opcost, routeFeeTotal, driverFeeTotal, realizedOperational, danaOpsSetoran, labaSewaUnit, labaRute, labaOperasional };
+        this.currentData = { 
+            days, totalGross, discountAmount, totalBill,
+            investorShare, adminNetProfit, addonsSellTotal, addonsModalTotal, opcost, 
+            routeFeeTotal, driverFeeTotal, realizedOperational, danaOpsSetoran, 
+            labaSewaUnit, labaRute, labaOperasional 
+        };
     },
     getCalculations() {
-        return this.currentData || { days:0, totalBill:0, investorShare:0, adminNetProfit:0, addonsSellTotal:0, addonsModalTotal:0, opcost:0, realizedOperational:0, danaOpsSetoran:0 };
+        return this.currentData || { days:0, totalBill:0, totalGross:0, discountAmount:0, investorShare:0, adminNetProfit:0, addonsSellTotal:0, addonsModalTotal:0, opcost:0, realizedOperational:0, danaOpsSetoran:0 };
     }
 };
 
@@ -1010,25 +1143,31 @@ const invoiceGenerator = {
                         const driverFee = b.driver_fee || 0;
                         const routeFee = b.route_fee || 0;
                         const addons = b.addons || 0;
-                        const baseRent = b.total_bill - driverFee - routeFee - addons;
+                        const totalGross = b.total_gross !== undefined ? b.total_gross : (b.total_bill || 0);
+                        const baseRent = totalGross - driverFee - routeFee - addons;
+                        const discountAmount = b.discount_amount || 0;
+                        const dpAmount = b.dp_amount || 0;
+                        const remainingBalance = b.remaining_balance !== undefined ? b.remaining_balance : (b.total_bill || 0);
                         const destText = b.trip_destination ? ` (${b.trip_destination})` : '';
 
+                        let rows = '';
+
                         if (invType === 'include') {
-                            return `
+                            rows += `
                                 <tr>
                                     <td>Sewa Kendaraan + Driver + BBM/Tol + Area${destText}</td>
-                                    <td style="text-align:right; font-weight:500;">${ui.formatCurrency(b.total_bill)}</td>
+                                    <td style="text-align:right; font-weight:500;">${ui.formatCurrency(totalGross)}</td>
                                 </tr>
                             `;
                         } else {
-                            let rows = `
+                            rows += `
                                 <tr>
-                                    <td>Base Rent (${days} Days)</td>
+                                    <td>Base Rent (${days} Hari)</td>
                                     <td style="text-align:right; font-weight:500;">${ui.formatCurrency(baseRent)}</td>
                                 </tr>
                             `;
                             if(driverFee > 0) {
-                                rows += `<tr><td>Driver Fee (${days} Days)</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(driverFee)}</td></tr>`;
+                                rows += `<tr><td>Driver Fee (${days} Hari)</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(driverFee)}</td></tr>`;
                             }
                             if(routeFee > 0 || b.trip_destination) {
                                 rows += `<tr><td>Route Area Fee${destText}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(routeFee)}</td></tr>`;
@@ -1038,13 +1177,31 @@ const invoiceGenerator = {
                             } else if(addons > 0) {
                                 rows += `<tr><td>Addons: ${b.addons_desc || 'Extras'}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(addons)}</td></tr>`;
                             }
-                            return rows;
                         }
+
+                        if (discountAmount > 0) {
+                            rows += `<tr><td style="color:#0f766e; text-align:right; padding-right:20px; font-weight:600;">Sub-Total</td><td style="text-align:right; font-weight:600;">${ui.formatCurrency(totalGross)}</td></tr>`;
+                            rows += `<tr style="background:#fef2f2;"><td style="color:#dc2626;">Diskon</td><td style="text-align:right; font-weight:600; color:#dc2626;">(${ui.formatCurrency(discountAmount)})</td></tr>`;
+                        }
+
+                        rows += `
+                            <tr class="total">
+                                <td style="text-align:right; padding-right:20px; text-transform:uppercase; font-size:14px;">Total Tagihan</td>
+                                <td style="text-align:right;">${ui.formatCurrency(b.total_bill || 0)}</td>
+                            </tr>
+                        `;
+
+                        if (dpAmount > 0) {
+                            rows += `<tr style="background:#f0fdfa;"><td style="text-align:right; padding-right:20px; font-weight:600; color:#0d9488;">Lunas DP</td><td style="text-align:right; font-weight:600; color:#0d9488;">(${ui.formatCurrency(dpAmount)})</td></tr>`;
+                        }
+                        
+                        // Always show remaining balance if there's any action
+                        if (remainingBalance >= 0) {
+                            rows += `<tr><td style="text-align:right; padding-right:20px; font-weight:bold; color:#0f766e; font-size:16px;">Sisa Tagihan</td><td style="text-align:right; font-weight:bold; color:#0f766e; font-size:18px;">${ui.formatCurrency(remainingBalance)}</td></tr>`;
+                        }
+
+                        return rows;
                     })()}
-                    <tr class="total">
-                        <td style="text-align:right; padding-right:20px; text-transform:uppercase; font-size:14px;">Grand Total</td>
-                        <td style="text-align:right;">${ui.formatCurrency(b.total_bill)}</td>
-                    </tr>
                 </table>
                 
                 <div style="margin-top: 40px; padding: 24px; background: #e0f2fe; border-left: 6px solid #0284c7; border-radius:8px;">
@@ -1388,15 +1545,15 @@ appState.editBooking = (id) => {
             b.addons_list.forEach(a => {
                 const modalStr = a.modal !== undefined ? a.modal.toLocaleString('id-ID') : '0';
                 container.innerHTML += `
-                    <div class="form-row addon-item" style="margin-top:10px;">
+                    <div class="form-row addon-item" style="margin-top:6px;">
                         <div class="col" style="flex:2;">
-                            <input type="text" class="addon-desc" value="${a.desc}">
+                            <input type="text" class="addon-desc" value="${a.desc}" placeholder="Addon Name (e.g. BBM)">
                         </div>
                         <div class="col" style="flex:1;">
                             <input type="text" class="addon-cost" value="${a.cost.toLocaleString('id-ID')}" placeholder="Harga Jual" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
                         </div>
                         <div class="col" style="flex:1;">
-                            <input type="text" class="addon-modal" value="${modalStr}" placeholder="Modal Addon" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                            <input type="text" class="addon-modal" value="${modalStr}" placeholder="Terpakai" style="background:#e2e8f0; border-color:#cbd5e1; color:#334155;" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
                         </div>
                         <div style="display:flex; align-items:center; justify-content:center;">
                             <i class='bx bx-trash' style="color:var(--danger); cursor:pointer; font-size:20px;" onclick="this.parentElement.parentElement.remove(); calculator.updateSplit()"></i>
@@ -1410,7 +1567,7 @@ appState.editBooking = (id) => {
             const descStr = b.addons_desc || '';
             const modalStr = (b.addons_modal || 0).toLocaleString('id-ID');
             container.innerHTML = `
-                <div class="form-row addon-item" style="margin-top:10px;">
+                <div class="form-row addon-item" style="margin-top:6px;">
                     <div class="col" style="flex:2;">
                         <input type="text" class="addon-desc" value="${descStr}" placeholder="Addon Name (e.g. BBM)">
                     </div>
@@ -1418,7 +1575,7 @@ appState.editBooking = (id) => {
                         <input type="text" class="addon-cost" value="${costStr}" placeholder="Harga Jual" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
                     </div>
                     <div class="col" style="flex:1;">
-                        <input type="text" class="addon-modal" value="${modalStr}" placeholder="Modal Addon" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
+                        <input type="text" class="addon-modal" value="${modalStr}" placeholder="Terpakai" style="background:#e2e8f0; border-color:#cbd5e1; color:#334155;" oninput="ui.formatInputCurrency(this); calculator.updateSplit()">
                     </div>
                     <div style="display:flex; align-items:center; justify-content:center;">
                         <i class='bx bx-trash' style="color:var(--danger); cursor:pointer; font-size:20px;" onclick="this.parentElement.parentElement.remove(); calculator.updateSplit()"></i>
@@ -1438,6 +1595,10 @@ appState.editBooking = (id) => {
         document.getElementById('b_driver_fee').value = (b.driver_fee_per_day || 0).toLocaleString('id-ID');
         document.getElementById('b_payment_status').value = b.status_payment || 'pending';
         
+        if (document.getElementById('b_discount_type')) {
+            document.getElementById('b_discount_type').value = b.discount_type || 'fixed';
+            document.getElementById('b_discount_value').value = (b.discount_value || 0).toLocaleString('id-ID');
+        }
         ui.openModal('bookingModal');
         calculator.updateSplit(); // Trigger calculation updates
     }
