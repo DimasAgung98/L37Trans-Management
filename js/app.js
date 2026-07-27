@@ -331,6 +331,24 @@ const firebaseLogic = {
     },
     async loadDashboard() {
         try {
+            // Fetch Config from Firebase
+            try {
+                const configRef = doc(db, "system", "config");
+                const configSnap = await getDoc(configRef);
+                if (configSnap.exists()) {
+                    const data = configSnap.data();
+                    if (data.settings_routes !== undefined) localStorage.setItem('settings_routes', data.settings_routes);
+                    if (data.settings_company) localStorage.setItem('settings_company', data.settings_company);
+                    if (data.settings_tagline) localStorage.setItem('settings_tagline', data.settings_tagline);
+                    if (data.settings_phone) localStorage.setItem('settings_phone', data.settings_phone);
+                    if (data.settings_address) localStorage.setItem('settings_address', data.settings_address);
+                    if (data.settings_bank) localStorage.setItem('settings_bank', data.settings_bank);
+                    if (data.settings_footer) localStorage.setItem('settings_footer', data.settings_footer);
+                }
+            } catch (e) {
+                console.error("Failed to fetch config from Firebase", e);
+            }
+
             // Load Settings Configs
             const routeStr = localStorage.getItem('settings_routes') || "Dalam Kota|0\nLuar Kota Ring 1|150000\nLuar Kota Ring 2|350000";
 
@@ -928,13 +946,25 @@ const firebaseLogic = {
             if (name) routesArray.push(`${name}|${fee}`);
         });
 
-        localStorage.setItem('settings_company', document.getElementById('setting-company').value);
-        localStorage.setItem('settings_tagline', document.getElementById('setting-tagline').value);
-        localStorage.setItem('settings_phone', document.getElementById('setting-phone').value);
-        localStorage.setItem('settings_address', document.getElementById('setting-address').value);
-        localStorage.setItem('settings_bank', document.getElementById('setting-bank').value);
-        localStorage.setItem('settings_footer', document.getElementById('setting-footer').value);
-        localStorage.setItem('settings_routes', routesArray.join('\n'));
+        const configData = {
+            settings_company: document.getElementById('setting-company').value,
+            settings_tagline: document.getElementById('setting-tagline').value,
+            settings_phone: document.getElementById('setting-phone').value,
+            settings_address: document.getElementById('setting-address').value,
+            settings_bank: document.getElementById('setting-bank').value,
+            settings_footer: document.getElementById('setting-footer').value,
+            settings_routes: routesArray.join('\n')
+        };
+
+        for (let key in configData) {
+            localStorage.setItem(key, configData[key]);
+        }
+
+        try {
+            await setDoc(doc(db, "system", "config"), configData, { merge: true });
+        } catch (e) {
+            console.error("Failed to save config to Firebase", e);
+        }
 
         // Handle PIN
         const newPin = document.getElementById('setting-pin').value;
