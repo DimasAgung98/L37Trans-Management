@@ -1,6 +1,6 @@
 import { db } from './firebase-init.js';
-import { 
-    collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, getDoc, setDoc 
+import {
+    collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, getDoc, setDoc
 } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
 // === UI & STATE MANAGEMENT ===
@@ -11,12 +11,12 @@ const ui = {
             item.addEventListener('click', (e) => {
                 document.querySelectorAll('.nav-links li').forEach(l => l.classList.remove('active'));
                 document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-                
+
                 const target = e.currentTarget.getAttribute('data-target');
                 e.currentTarget.classList.add('active');
                 document.getElementById(target).classList.add('active');
-                
-                if(target === 'calendar-section') {
+
+                if (target === 'calendar-section') {
                     setTimeout(() => appState.calendar.render(), 200); // Re-render if hidden
                 }
             });
@@ -27,19 +27,19 @@ const ui = {
     },
     closeModal(id) {
         document.getElementById(id).classList.remove('show');
-        if(id === 'vehicleModal') {
+        if (id === 'vehicleModal') {
             document.getElementById('vehicleForm').reset();
             document.getElementById('v_id').value = '';
         }
-        if(id === 'bookingModal') {
+        if (id === 'bookingModal') {
             document.getElementById('bookingForm').reset();
             document.getElementById('b_id').value = '';
             document.getElementById('calc_duration').innerText = '0 Days';
             document.getElementById('calc_bill').innerText = 'Rp 0';
             document.getElementById('calc_ops_setoran').innerText = 'Rp 0';
             document.getElementById('calc_admin').innerText = 'Rp 0';
-            if(document.getElementById('b_actual_bbm')) document.getElementById('b_actual_bbm').value = '';
-            if(document.getElementById('b_actual_toll')) document.getElementById('b_actual_toll').value = '';
+            if (document.getElementById('b_actual_bbm')) document.getElementById('b_actual_bbm').value = '';
+            if (document.getElementById('b_actual_toll')) document.getElementById('b_actual_toll').value = '';
             document.getElementById('addons-container').innerHTML = `
                 <div class="form-row addon-item" style="margin-top:10px;">
                     <div class="col" style="flex:2;">
@@ -57,42 +57,42 @@ const ui = {
                 </div>
             `;
         }
-        if(id === 'customerModal') {
+        if (id === 'customerModal') {
             document.getElementById('customerForm').reset();
             document.getElementById('c_id').value = '';
         }
-        if(id === 'invoiceModal') {
+        if (id === 'invoiceModal') {
             document.getElementById('invoiceTemplatePopup').innerHTML = '';
         }
     },
     openBreakdown(bId) {
         const b = appState.bookings.find(x => x.id === bId);
-        if(!b) return;
+        if (!b) return;
 
         // === Definisi Variabel ===
-        const totalGross  = b.total_gross !== undefined ? b.total_gross : b.total_bill || 0;
+        const totalGross = b.total_gross !== undefined ? b.total_gross : b.total_bill || 0;
         const discountAmount = b.discount_amount || 0;
-        const netTotal    = b.total_bill || 0;
-        const dpAmount    = b.dp_amount || 0;
+        const netTotal = b.total_bill || 0;
+        const dpAmount = b.dp_amount || 0;
         let remainingBalance = b.remaining_balance !== undefined ? b.remaining_balance : (netTotal - dpAmount);
         const isPaid = b.status_payment === 'paid';
         if (isPaid) remainingBalance = 0;
 
         // Calculate implicit baseRent ignoring discount
-        const baseRent    = totalGross - (b.addons || 0) - (b.route_fee || 0) - (b.driver_fee || 0);
+        const baseRent = totalGross - (b.addons || 0) - (b.route_fee || 0) - (b.driver_fee || 0);
         const investorShare = b.investor_share || 0;
-        const routeFee    = b.route_fee || 0;
-        const driverFee   = b.driver_fee || 0;
+        const routeFee = b.route_fee || 0;
+        const driverFee = b.driver_fee || 0;
         const addonBudget = b.addons || 0;    // Harga jual Addon ke pelanggan
         const addonActual = b.realized_operational || b.addons_modal || 0; // Biaya riil / fallback ke modal
-        const hasActual   = !!b.realized_operational;
+        const hasActual = !!b.realized_operational;
 
         // === Sumber Laba ===
-        const labaSewaUnit  = baseRent - investorShare;
-        const labaRute      = routeFee;  // 100% masuk ke Admin
+        const labaSewaUnit = baseRent - investorShare;
+        const labaRute = routeFee;  // 100% masuk ke Admin
         const labaOperasional = addonBudget - addonActual; // Sisa budget yang tidak terpakai
         // Driver fee = pass-through (collected from customer = paid to driver → net 0)
-        const netProfit     = labaSewaUnit + labaRute + labaOperasional - discountAmount;
+        const netProfit = labaSewaUnit + labaRute + labaOperasional - discountAmount;
 
         let breakdownHTML = `
             <!-- BLOK A: Total Income -->
@@ -161,10 +161,10 @@ const ui = {
 
                     <!-- Per-Item Addons (granular) -->
                     ${(() => {
-                        const addonsList = b.addons_list || [];
-                        if (addonsList.length === 0 && addonBudget > 0) {
-                            // Fallback satu baris agregat
-                            return `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #059669; border-radius:8px; padding:10px 14px;">
+                const addonsList = b.addons_list || [];
+                if (addonsList.length === 0 && addonBudget > 0) {
+                    // Fallback satu baris agregat
+                    return `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #059669; border-radius:8px; padding:10px 14px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                                     <span style="font-weight:600; font-size:13px; color:#059669; display:flex; align-items:center; gap:5px;"><i class='bx bx-gas-pump'></i> Laba Operasional</span>
                                 </div>
@@ -172,28 +172,28 @@ const ui = {
                                 <div style="display:flex; justify-content:space-between; font-size:12px; color:#dc2626; margin-bottom:5px;"><span>Biaya Riil:</span><span>(${ui.formatCurrency(addonActual)})</span></div>
                                 <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:700; border-top:1px dashed #e2e8f0; padding-top:5px; color:${labaOperasional >= 0 ? '#10b981' : '#dc2626'};"><span>= Laba Ops</span><span>${ui.formatCurrency(labaOperasional)}</span></div>
                             </div>`;
-                        }
-                        return addonsList.map((item, idx) => {
-                            const itemBudget = item.cost || 0;
-                            const itemRiil   = item.modal || 0; // kolom 3 = Riil Terpakai
-                            const hasRiil    = itemRiil > 0;
-                            const itemLaba   = itemBudget - itemRiil;
+                }
+                return addonsList.map((item, idx) => {
+                    const itemBudget = item.cost || 0;
+                    const itemRiil = item.modal || 0; // kolom 3 = Riil Terpakai
+                    const hasRiil = itemRiil > 0;
+                    const itemLaba = itemBudget - itemRiil;
 
-                            const badge = hasRiil
-                                ? '<span style="background:#dcfce7;color:#16a34a;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;">TERISI</span>'
-                                : '<span style="background:#fef9c3;color:#854d0e;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;">BELUM DIISI</span>';
+                    const badge = hasRiil
+                        ? '<span style="background:#dcfce7;color:#16a34a;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;">TERISI</span>'
+                        : '<span style="background:#fef9c3;color:#854d0e;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;">BELUM DIISI</span>';
 
-                            return `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #059669; border-radius:8px; padding:10px 14px;">
+                    return `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #059669; border-radius:8px; padding:10px 14px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; flex-wrap:wrap; gap:4px;">
-                                    <span style="font-weight:600; font-size:13px; color:#059669; display:flex; align-items:center; gap:5px;"><i class='bx bx-gas-pump'></i> ${item.desc || 'Add-on ' + (idx+1)}</span>
+                                    <span style="font-weight:600; font-size:13px; color:#059669; display:flex; align-items:center; gap:5px;"><i class='bx bx-gas-pump'></i> ${item.desc || 'Add-on ' + (idx + 1)}</span>
                                     ${badge}
                                 </div>
                                 <div style="display:flex; justify-content:space-between; font-size:12px; color:#64748b; margin-bottom:2px;"><span>Budget dari Customer:</span><span>${ui.formatCurrency(itemBudget)}</span></div>
                                 <div style="display:flex; justify-content:space-between; font-size:12px; color:#dc2626; margin-bottom:5px;"><span>Riil Terpakai:</span><span>${hasRiil ? '(' + ui.formatCurrency(itemRiil) + ')' : '<em style="color:#94a3b8;">Belum diisi</em>'}</span></div>
                                 <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:700; border-top:1px dashed #e2e8f0; padding-top:5px; color:${!hasRiil ? '#94a3b8' : (itemLaba >= 0 ? '#10b981' : '#dc2626')};"><span>= Laba ${item.desc || 'Addon'}</span><span>${!hasRiil ? '—' : ui.formatCurrency(itemLaba)}</span></div>
                             </div>`;
-                        }).join('');
-                    })()}
+                }).join('');
+            })()}
 
                     <!-- Driver: Pass-through (collected from customer = paid to driver) -->
                     ${driverFee > 0 ? `<div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #64748b; border-radius:8px; padding:10px 14px;">
@@ -306,26 +306,26 @@ const appState = {
 const firebaseLogic = {
     async verifyPIN() {
         const input = document.getElementById('admin-pin-input').value;
-        if(!input) return;
+        if (!input) return;
         try {
             const docRef = doc(db, "system", "security");
             const docSnap = await getDoc(docRef);
             let validPin = "123456";
-            if(docSnap.exists() && docSnap.data().admin_pin) {
+            if (docSnap.exists() && docSnap.data().admin_pin) {
                 validPin = docSnap.data().admin_pin;
             } else {
-                 await setDoc(docRef, { admin_pin: "123456" });
+                await setDoc(docRef, { admin_pin: "123456" });
             }
-            
-            if(input === validPin) {
+
+            if (input === validPin) {
                 sessionStorage.setItem('admin_unlocked', 'true');
                 document.getElementById('pin-gate').style.display = 'none';
-                Swal.fire({toast:true, position:'top-end', icon:'success', title:'Unlocked successfully', showConfirmButton:false, timer:1500});
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Unlocked successfully', showConfirmButton: false, timer: 1500 });
                 this.loadDashboard();
             } else {
                 Swal.fire('Error', 'Invalid PIN', 'error');
             }
-        } catch(e) {
+        } catch (e) {
             Swal.fire('Error', 'Could not verify PIN', 'error');
         }
     },
@@ -333,16 +333,16 @@ const firebaseLogic = {
         try {
             // Load Settings Configs
             const routeStr = localStorage.getItem('settings_routes') || "Dalam Kota|0\nLuar Kota Ring 1|150000\nLuar Kota Ring 2|350000";
-            
+
             document.getElementById('settings-routes-container').innerHTML = '';
             const routeSelect = document.getElementById('b_route');
             routeSelect.innerHTML = '';
-            
+
             routeStr.split('\n').filter(r => r.trim()).forEach(line => {
                 let parts = line.split('|');
-                if(parts.length >= 2) {
+                if (parts.length >= 2) {
                     let name = parts[0].trim();
-                    let feeVal = parseFloat(parts[1].replace(/[^0-9.-]+/g,"")) || 0;
+                    let feeVal = parseFloat(parts[1].replace(/[^0-9.-]+/g, "")) || 0;
                     routeSelect.innerHTML += `<option value="${feeVal}" data-fee="${feeVal}">${name} (Rp ${feeVal.toLocaleString('id-ID')})</option>`;
                     ui.addSettingRoute(name, feeVal.toLocaleString('id-ID'));
                 }
@@ -358,40 +358,40 @@ const firebaseLogic = {
 
             // Load Vehicles
             const vSnap = await getDocs(collection(db, "vehicles"));
-            appState.vehicles = vSnap.docs.map(d => ({id: d.id, ...d.data()}));
+            appState.vehicles = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             this.renderVehicles();
-            
+
             // Populate vehicle select in booking modal
             const bVehicleSelect = document.getElementById('b_vehicle');
             bVehicleSelect.innerHTML = '<option value="">Select Unit</option>';
             appState.vehicles.forEach(v => {
-                if(v.status === 'available') {
+                if (v.status === 'available') {
                     bVehicleSelect.innerHTML += `<option value="${v.id}" data-mod="${v.investor_price}" data-sell="${v.selling_price}">${v.name} - ${v.plate}</option>`;
                 }
             });
 
             // Load Customers
             const cSnap = await getDocs(collection(db, "customers"));
-            appState.customers = cSnap.docs.map(d => ({id: d.id, ...d.data()}));
+            appState.customers = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             this.renderCustomers();
 
             // Load Bookings
             const bSnap = await getDocs(collection(db, "bookings"));
-            appState.bookings = bSnap.docs.map(d => ({id: d.id, ...d.data()}));
+            appState.bookings = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             this.renderBookings();
-            
+
             // Dashboard Stats
             document.getElementById('stat-total-fleet').innerText = appState.vehicles.length;
             document.getElementById('stat-available-cars').innerText = appState.vehicles.filter(v => v.status === 'available').length;
             document.getElementById('stat-maintenance-cars').innerText = appState.vehicles.filter(v => v.status === 'maintenance').length;
-            
+
             document.getElementById('stat-active-bookings').innerText = appState.bookings.length;
-            
+
             const todayStr = new Date().toISOString().split('T')[0];
             document.getElementById('stat-today-bookings').innerText = appState.bookings.filter(b => b.start_date.startsWith(todayStr)).length;
             document.getElementById('stat-pending-payments').innerText = appState.bookings.filter(b => b.status_payment === 'pending').length;
-            
-            
+
+
             let revenue = appState.bookings.reduce((sum, b) => b.status_payment === 'paid' ? sum + (b.total_bill || 0) : sum, 0);
             document.getElementById('stat-revenue').innerText = ui.formatCurrency(revenue);
 
@@ -399,17 +399,17 @@ const firebaseLogic = {
             const now = new Date();
             const activeTable = document.getElementById('dash-active-table');
             const pendingTable = document.getElementById('dash-pending-table');
-            
+
             activeTable.innerHTML = '';
             pendingTable.innerHTML = '';
-            
+
             let activeRentalsCount = 0;
             let pendingCount = 0;
 
             appState.bookings.forEach(b => {
                 const start = new Date(b.start_date);
                 const end = new Date(b.end_date);
-                
+
                 // Active on-road (happening right now and not cancelled)
                 if (now >= start && now <= end && b.status_payment !== 'cancelled') {
                     activeRentalsCount++;
@@ -437,8 +437,8 @@ const firebaseLogic = {
                 }
             });
 
-            if(activeRentalsCount === 0) activeTable.innerHTML = `<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--text-muted);">No active rentals right now.</td></tr>`;
-            if(pendingCount === 0) pendingTable.innerHTML = `<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--text-muted);">All clear! No pending payments.</td></tr>`;
+            if (activeRentalsCount === 0) activeTable.innerHTML = `<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--text-muted);">No active rentals right now.</td></tr>`;
+            if (pendingCount === 0) pendingTable.innerHTML = `<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--text-muted);">All clear! No pending payments.</td></tr>`;
 
             this.renderRevenue();
             initCalendar();
@@ -460,7 +460,7 @@ const firebaseLogic = {
         };
 
         try {
-            if(id) {
+            if (id) {
                 await updateDoc(doc(db, "vehicles", id), data);
                 Swal.fire('Success', 'Vehicle updated', 'success');
             } else {
@@ -469,18 +469,18 @@ const firebaseLogic = {
             }
             ui.closeModal('vehicleModal');
             this.loadDashboard();
-        } catch(e) {
+        } catch (e) {
             Swal.fire('Error', e.message, 'error');
         }
     },
 
     async deleteVehicle(id) {
-        if(confirm("Are you sure you want to delete this vehicle?")) {
+        if (confirm("Are you sure you want to delete this vehicle?")) {
             try {
                 await deleteDoc(doc(db, "vehicles", id));
                 Swal.fire('Deleted!', 'Vehicle has been deleted.', 'success');
                 this.loadDashboard();
-            } catch(e) {
+            } catch (e) {
                 Swal.fire('Error', e.message, 'error');
             }
         }
@@ -518,7 +518,7 @@ const firebaseLogic = {
         };
 
         try {
-            if(id) {
+            if (id) {
                 await updateDoc(doc(db, "customers", id), data);
                 Swal.fire('Success', 'Customer updated', 'success');
             } else {
@@ -527,18 +527,18 @@ const firebaseLogic = {
             }
             ui.closeModal('customerModal');
             this.loadDashboard();
-        } catch(e) {
+        } catch (e) {
             Swal.fire('Error', e.message, 'error');
         }
     },
 
     async deleteCustomer(id) {
-        if(confirm("Are you sure you want to delete this customer?")) {
+        if (confirm("Are you sure you want to delete this customer?")) {
             try {
                 await deleteDoc(doc(db, "customers", id));
                 Swal.fire('Deleted!', 'Customer has been deleted.', 'success');
                 this.loadDashboard();
-            } catch(e) {
+            } catch (e) {
                 Swal.fire('Error', e.message, 'error');
             }
         }
@@ -549,7 +549,7 @@ const firebaseLogic = {
         const datalist = document.getElementById('customers_list');
         tbody.innerHTML = '';
         datalist.innerHTML = '';
-        
+
         appState.customers.forEach(c => {
             tbody.innerHTML += `
                 <tr>
@@ -577,7 +577,7 @@ const firebaseLogic = {
         const end = document.getElementById('b_end').value;
         const paymentStat = document.getElementById('b_payment_status').value;
         const route_fee = parseFloat(document.getElementById('b_route').selectedOptions[0].dataset.fee);
-        
+
         let addons_list = [];
         let addonsSellSum = 0;
         let addonsModalSum = 0;
@@ -587,20 +587,20 @@ const firebaseLogic = {
             const desc = item.querySelector('.addon-desc').value.trim();
             const cost = parseFloat(ui.parseCurrency(item.querySelector('.addon-cost').value || '0'));
             const modal = parseFloat(ui.parseCurrency(item.querySelector('.addon-modal').value || '0'));
-            if(desc || cost > 0 || modal > 0) {
+            if (desc || cost > 0 || modal > 0) {
                 addons_list.push({ desc: desc || 'Addon', cost: cost, modal: modal });
                 addonsSellSum += cost;
                 addonsModalSum += modal;
-                if(desc) addonsDescList.push(desc);
+                if (desc) addonsDescList.push(desc);
             }
         });
 
         const addons_desc = addonsDescList.length > 0 ? addonsDescList.join(', ') : '';
         const customRentRaw = parseFloat(ui.parseCurrency(document.getElementById('b_custom_rent').value || '0'));
-        
+
         const route_fee_per_day = parseFloat(document.getElementById('b_route').selectedOptions[0].dataset.fee || 0);
         const driver_fee_per_day = parseFloat(ui.parseCurrency(document.getElementById('b_driver_fee').value || '0'));
-        if(!v_id || !start || !end || !customer) {
+        if (!v_id || !start || !end || !customer) {
             Swal.fire('Warning', 'Complete all required fields!', 'warning');
             return;
         }
@@ -608,7 +608,7 @@ const firebaseLogic = {
         const startDate = new Date(start);
         const endDate = new Date(end);
 
-        if(startDate >= endDate) {
+        if (startDate >= endDate) {
             Swal.fire('Warning', 'End Date must be after Start Date!', 'warning');
             return;
         }
@@ -617,21 +617,21 @@ const firebaseLogic = {
         // Skip conflict detection for itself if it's an update
         const q = query(collection(db, "bookings"), where("vehicle_id", "==", v_id));
         const snapshots = await getDocs(q);
-        
+
         let hasConflict = false;
         snapshots.forEach(docSnap => {
-            if(id && docSnap.id === id) return; // ignore current
-            
+            if (id && docSnap.id === id) return; // ignore current
+
             const existing = docSnap.data();
             const exStart = new Date(existing.start_date);
             const exEnd = new Date(existing.end_date);
-            
-            if(startDate < exEnd && endDate > exStart) {
+
+            if (startDate < exEnd && endDate > exStart) {
                 hasConflict = true;
             }
         });
 
-        if(hasConflict) {
+        if (hasConflict) {
             Swal.fire({
                 icon: 'error',
                 title: 'Conflict Detected',
@@ -640,7 +640,7 @@ const firebaseLogic = {
             });
             return;
         }
-        
+
         // Finalize state via calculator module data
         const calcData = calculator.getCalculations();
 
@@ -672,19 +672,20 @@ const firebaseLogic = {
             discount_value: document.getElementById('b_discount_value') ? parseFloat(ui.parseCurrency(document.getElementById('b_discount_value').value || '0')) : 0,
             discount_amount: calcData.discountAmount, // New
             total_bill: calcData.totalBill, // This is Net Total now
-            dp_amount: existingDpAmount, 
-            remaining_balance: calcData.totalBill - existingDpAmount, 
+            dp_amount: existingDpAmount,
+            remaining_balance: calcData.totalBill - existingDpAmount,
             investor_share: calcData.investorShare,
             admin_profit: calcData.adminNetProfit,
             dana_ops_setoran: calcData.danaOpsSetoran,
             realized_operational: calcData.realizedOperational,
             custom_rent_price: customRentRaw > 0 ? customRentRaw : 0,
+            custom_total_bill: calcData.customTotalBill || 0,
             status_payment: paymentStat,
             updated_at: new Date().toISOString()
         };
 
         try {
-            if(id) {
+            if (id) {
                 await updateDoc(doc(db, "bookings", id), data);
                 Swal.fire('Success', 'Booking Updated', 'success');
             } else {
@@ -694,18 +695,18 @@ const firebaseLogic = {
             }
             ui.closeModal('bookingModal');
             this.loadDashboard();
-        } catch(e) {
+        } catch (e) {
             Swal.fire('Error', e.message, 'error');
         }
     },
 
     async deleteBooking(id) {
-        if(confirm("Are you sure you want to delete this booking record?")) {
+        if (confirm("Are you sure you want to delete this booking record?")) {
             try {
                 await deleteDoc(doc(db, "bookings", id));
                 Swal.fire('Deleted!', 'Booking has been deleted.', 'success');
                 this.loadDashboard();
-            } catch(e) {
+            } catch (e) {
                 Swal.fire('Error', e.message, 'error');
             }
         }
@@ -717,7 +718,7 @@ const firebaseLogic = {
                 status_payment: status,
                 updated_at: new Date().toISOString()
             });
-            
+
             // Subtle toast notification for quick actions Let's use standard Swal for simplicity
             Swal.fire({
                 title: 'Updated!',
@@ -728,16 +729,16 @@ const firebaseLogic = {
                 showConfirmButton: false,
                 timer: 2000
             });
-            
+
             this.loadDashboard();
-        } catch(e) {
+        } catch (e) {
             Swal.fire('Error', e.message, 'error');
         }
     },
 
     async recordDP(id) {
         const b = appState.bookings.find(x => x.id === id);
-        if(!b) return;
+        if (!b) return;
 
         const { value: dpNominalStr } = await Swal.fire({
             title: b.dp_amount > 0 ? 'Edit Downpayment (DP)' : 'Record Downpayment (DP)',
@@ -776,7 +777,7 @@ const firebaseLogic = {
                     status_payment: newStatus,
                     updated_at: new Date().toISOString()
                 });
-                
+
                 Swal.fire({
                     title: 'DP Updated!',
                     text: `Berhasil mencatat DP sebesar ${ui.formatCurrency(dpAmount)}`,
@@ -786,9 +787,9 @@ const firebaseLogic = {
                     showConfirmButton: false,
                     timer: 2000
                 });
-                
+
                 this.loadDashboard();
-            } catch(e) {
+            } catch (e) {
                 Swal.fire('Error', e.message, 'error');
             }
         }
@@ -797,7 +798,7 @@ const firebaseLogic = {
     renderBookings() {
         const tbody = document.querySelector('#bookingsTable tbody');
         tbody.innerHTML = '';
-        appState.bookings.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).forEach(b => {
+        appState.bookings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).forEach(b => {
             const status = (b.status_payment === 'pending' ? 'unpaid' : (b.status_payment || 'unpaid')).toLowerCase();
             let sisa = b.remaining_balance !== undefined ? b.remaining_balance : (b.total_bill - (b.dp_amount || 0));
             if (status === 'paid') sisa = 0;
@@ -816,7 +817,7 @@ const firebaseLogic = {
                 actionBtns += `<button class="btn btn-secondary" style="background:#8b5cf6; color:#fff; border:none;" onclick="firebaseLogic.recordDP('${b.id}')" title="Edit DP">Edit DP</button>`;
                 actionBtns += `<button class="btn btn-primary" style="background:#10b981; border:none;" onclick="firebaseLogic.updatePaymentStatus('${b.id}', 'paid')" title="Finalize Payment">Finalize</button>`;
             }
-            
+
             // Always show invoice button
             actionBtns += `<button class="btn btn-primary" style="background:#0284c7; border:none;" onclick="invoiceGenerator.generate('${b.id}')"><i class='bx bxs-file-pdf'></i> Invoice</button>`;
 
@@ -842,7 +843,7 @@ const firebaseLogic = {
     renderRevenue() {
         const tbody = document.querySelector('#revenueTable tbody');
         tbody.innerHTML = '';
-        
+
         let totalInvestor = 0;
         let totalAdmin = 0;
 
@@ -850,7 +851,7 @@ const firebaseLogic = {
         const customStart = document.getElementById('rev-filter-start');
         const customEnd = document.getElementById('rev-filter-end');
 
-        if(document.getElementById('rev-filter-custom-dates')) {
+        if (document.getElementById('rev-filter-custom-dates')) {
             document.getElementById('rev-filter-custom-dates').style.display = preset === 'custom' ? 'flex' : 'none';
         }
 
@@ -862,16 +863,16 @@ const firebaseLogic = {
         const paidBookings = appState.bookings.filter(b => {
             if (b.status_payment !== 'paid') return false;
             const bDate = new Date(b.created_at || b.start_date);
-            
+
             if (preset === 'today') return bDate >= startOfDay;
             if (preset === 'month') return bDate >= startOfMonth;
             if (preset === 'year') return bDate >= startOfYear;
             if (preset === 'custom') {
                 if (customStart && customEnd && customStart.value && customEnd.value) {
                     const cStart = new Date(customStart.value);
-                    cStart.setHours(0,0,0,0);
+                    cStart.setHours(0, 0, 0, 0);
                     const cEnd = new Date(customEnd.value);
-                    cEnd.setHours(23,59,59,999);
+                    cEnd.setHours(23, 59, 59, 999);
                     return bDate >= cStart && bDate <= cEnd;
                 }
                 return false; // Wait for user to select both dates
@@ -879,11 +880,11 @@ const firebaseLogic = {
             return true;
         });
 
-        if(paidBookings.length === 0) {
+        if (paidBookings.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:#94a3b8; font-style:italic;">Tidak ada data transaksi pada periode ini.</td></tr>`;
         }
 
-        paidBookings.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).forEach(b => {
+        paidBookings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).forEach(b => {
             const baseRent = (b.total_bill || 0) - (b.addons || 0) - (b.route_fee || 0) - (b.driver_fee || 0);
             const addonActual = b.realized_operational || b.addons_modal || 0;
             // Driver fee = pass-through (collected from customer = paid to driver → net 0)
@@ -924,7 +925,7 @@ const firebaseLogic = {
         document.querySelectorAll('#settings-routes-container .route-item').forEach(item => {
             const name = item.querySelector('.route-name').value.trim();
             const fee = ui.parseCurrency(item.querySelector('.route-fee').value || '0');
-            if(name) routesArray.push(`${name}|${fee}`);
+            if (name) routesArray.push(`${name}|${fee}`);
         });
 
         localStorage.setItem('settings_company', document.getElementById('setting-company').value);
@@ -937,13 +938,13 @@ const firebaseLogic = {
 
         // Handle PIN
         const newPin = document.getElementById('setting-pin').value;
-        if(newPin.length > 0) {
-            if(newPin.length < 6) {
+        if (newPin.length > 0) {
+            if (newPin.length < 6) {
                 return Swal.fire('Error', 'PIN must be at least 6 characters', 'error');
             }
             try {
-                await setDoc(doc(db, "system", "security"), { admin_pin: newPin }, {merge: true});
-            } catch(e) {
+                await setDoc(doc(db, "system", "security"), { admin_pin: newPin }, { merge: true });
+            } catch (e) {
                 console.error("Failed saving PIN to firebase", e);
             }
         }
@@ -952,7 +953,7 @@ const firebaseLogic = {
         setTimeout(() => {
             saveBtn.innerHTML = oldText;
             saveBtn.disabled = false;
-            Swal.fire({toast:true, position:'top-end', icon:'success', title:'Configuration saved successfully', showConfirmButton:false, timer:2000});
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Configuration saved successfully', showConfirmButton: false, timer: 2000 });
             this.loadDashboard();
         }, 800);
     }
@@ -964,15 +965,15 @@ const calculator = {
         const vSelect = document.getElementById('b_vehicle');
         const start = document.getElementById('b_start').value;
         const end = document.getElementById('b_end').value;
-        
-        if(!vSelect.value || !start || !end) return;
+
+        if (!vSelect.value || !start || !end) return;
 
         const modPrice = parseFloat(vSelect.selectedOptions[0].dataset.mod);
         let sellPrice = parseFloat(vSelect.selectedOptions[0].dataset.sell);
-        
+
         const customRentRaw = parseFloat(ui.parseCurrency(document.getElementById('b_custom_rent').value || '0'));
-        if(customRentRaw > 0) sellPrice = customRentRaw;
-        
+        if (customRentRaw > 0) sellPrice = customRentRaw;
+
         const routeFeePerDay = parseFloat(document.getElementById('b_route').selectedOptions[0].dataset.fee || 0);
         const driverFeePerDay = parseFloat(ui.parseCurrency(document.getElementById('b_driver_fee').value || '0'));
         let addonsSellTotal = 0;
@@ -990,17 +991,17 @@ const calculator = {
         // Calc Duration (Inclusive Days)
         const startDate = new Date(start);
         const endDate = new Date(end);
-        
+
         // Normalize time to midnight so time differences don't affect full day math
-        startDate.setHours(0,0,0,0);
-        endDate.setHours(0,0,0,0);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(0, 0, 0, 0);
 
         let diffMs = endDate.getTime() - startDate.getTime();
-        if(diffMs < 0) diffMs = 0;
-        
+        if (diffMs < 0) diffMs = 0;
+
         // +1 to make it inclusive (e.g. 1 Jan to 2 Jan = 2 days)
         const days = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
-        
+
         // Calculations
         const routeFeeTotal = routeFeePerDay * days;
         const driverFeeTotal = driverFeePerDay * days;
@@ -1012,7 +1013,7 @@ const calculator = {
         const discountType = document.getElementById('b_discount_type') ? document.getElementById('b_discount_type').value : 'fixed';
         const discountValueInput = document.getElementById('b_discount_value') ? parseFloat(ui.parseCurrency(document.getElementById('b_discount_value').value || '0')) : 0;
         let discountAmount = 0;
-        
+
         if (discountType === 'percentage') {
             discountAmount = totalGross * (discountValueInput / 100);
         } else {
@@ -1020,36 +1021,45 @@ const calculator = {
         }
 
         if (discountAmount > totalGross) discountAmount = totalGross;
-        const totalBill = totalGross - discountAmount;
-        
+        let totalBill = totalGross - discountAmount;
+
+        // Handle Custom Total Bill override
+        const customTotalBill = parseFloat(ui.parseCurrency(document.getElementById('b_custom_total') ? (document.getElementById('b_custom_total').value || '0') : '0'));
+        let extraMarkup = 0;
+        if (customTotalBill > 0) {
+            extraMarkup = customTotalBill - totalBill;
+            totalBill = customTotalBill;
+            totalGross += extraMarkup;
+        }
+
         const investorShare = modPrice * days;
-        
+
         // Net_Profit = (Base_Rent - Investor_Share) + Route_Fee + (Addon_Budget - Riil_Terpakai)
         // Driver fee = pass-through: collected from customer = paid to driver → net 0
-        const labaSewaUnit    = baseBill - investorShare;
-        const labaRute        = routeFeeTotal;
+        const labaSewaUnit = baseBill - investorShare;
+        const labaRute = routeFeeTotal;
         const labaOperasional = addonsSellTotal - realizedOperational;
-        const labaDriver      = 0; // driverFee in = driverFee out → tidak mempengaruhi profit
-        const adminNetProfit  = labaSewaUnit + labaRute + labaOperasional - discountAmount;
+        const labaDriver = 0; // driverFee in = driverFee out → tidak mempengaruhi profit
+        const adminNetProfit = labaSewaUnit + labaRute + labaOperasional - discountAmount + extraMarkup;
 
         // Dana Ops & Setoran tetap untuk referensi kas
-        const danaOpsSetoran  = investorShare + realizedOperational + driverFeeTotal + opcost;
+        const danaOpsSetoran = investorShare + realizedOperational + driverFeeTotal + opcost;
 
         // UI Update
-        if(document.getElementById('calc_duration')) document.getElementById('calc_duration').innerText = days.toFixed(2) + " Days";
-        if(document.getElementById('calc_bill')) document.getElementById('calc_bill').innerText = ui.formatCurrency(totalBill);
-        if(document.getElementById('calc_ops_setoran')) document.getElementById('calc_ops_setoran').innerText = ui.formatCurrency(danaOpsSetoran);
-        if(document.getElementById('calc_admin')) document.getElementById('calc_admin').innerText = ui.formatCurrency(adminNetProfit);
+        if (document.getElementById('calc_duration')) document.getElementById('calc_duration').innerText = days.toFixed(2) + " Days";
+        if (document.getElementById('calc_bill')) document.getElementById('calc_bill').innerText = ui.formatCurrency(totalBill);
+        if (document.getElementById('calc_ops_setoran')) document.getElementById('calc_ops_setoran').innerText = ui.formatCurrency(danaOpsSetoran);
+        if (document.getElementById('calc_admin')) document.getElementById('calc_admin').innerText = ui.formatCurrency(adminNetProfit);
 
-        this.currentData = { 
+        this.currentData = {
             days, totalGross, discountAmount, totalBill,
-            investorShare, adminNetProfit, addonsSellTotal, addonsModalTotal, opcost, 
-            routeFeeTotal, driverFeeTotal, realizedOperational, danaOpsSetoran, 
-            labaSewaUnit, labaRute, labaOperasional 
+            investorShare, adminNetProfit, addonsSellTotal, addonsModalTotal, opcost,
+            routeFeeTotal, driverFeeTotal, realizedOperational, danaOpsSetoran,
+            labaSewaUnit, labaRute, labaOperasional, customTotalBill
         };
     },
     getCalculations() {
-        return this.currentData || { days:0, totalBill:0, totalGross:0, discountAmount:0, investorShare:0, adminNetProfit:0, addonsSellTotal:0, addonsModalTotal:0, opcost:0, realizedOperational:0, danaOpsSetoran:0 };
+        return this.currentData || { days: 0, totalBill: 0, totalGross: 0, discountAmount: 0, investorShare: 0, adminNetProfit: 0, addonsSellTotal: 0, addonsModalTotal: 0, opcost: 0, realizedOperational: 0, danaOpsSetoran: 0, customTotalBill: 0 };
     }
 };
 
@@ -1057,7 +1067,7 @@ const calculator = {
 const invoiceGenerator = {
     generate(bookingId) {
         const b = appState.bookings.find(x => x.id === bookingId);
-        if(!b) return;
+        if (!b) return;
 
         const cName = localStorage.getItem('settings_company') || 'L37 Trans';
         const tagline = localStorage.getItem('settings_tagline') || 'Rent Car & Travel';
@@ -1115,7 +1125,7 @@ const invoiceGenerator = {
                     </div>
                     <div style="text-align:right;">
                         <h2 style="margin:0; color:#cbd5e1; font-size:28px; text-transform:uppercase; letter-spacing:3px;">Invoice</h2>
-                        <p style="margin:8px 0 0 0; color:#475569; font-size:14px;">ID: <strong>#${b.id.substring(0,8).toUpperCase()}</strong></p>
+                        <p style="margin:8px 0 0 0; color:#475569; font-size:14px;">ID: <strong>#${b.id.substring(0, 8).toUpperCase()}</strong></p>
                         <p style="margin:4px 0 0 0; color:#475569; font-size:14px;">Date: ${new Date().toLocaleDateString('id-ID')}</p>
                     </div>
                 </div>
@@ -1138,70 +1148,70 @@ const invoiceGenerator = {
                         <th style="text-align:right;">Amount</th>
                     </tr>
                     ${(() => {
-                        const invType = document.getElementById('invoice_type') ? document.getElementById('invoice_type').value : 'exclude';
-                        const days = (b.duration_days || 0).toFixed(1);
-                        const driverFee = b.driver_fee || 0;
-                        const routeFee = b.route_fee || 0;
-                        const addons = b.addons || 0;
-                        const totalGross = b.total_gross !== undefined ? b.total_gross : (b.total_bill || 0);
-                        const baseRent = totalGross - driverFee - routeFee - addons;
-                        const discountAmount = b.discount_amount || 0;
-                        const dpAmount = b.dp_amount || 0;
-                        const remainingBalance = b.remaining_balance !== undefined ? b.remaining_balance : (b.total_bill || 0);
-                        const destText = b.trip_destination ? ` (${b.trip_destination})` : '';
+                const invType = document.getElementById('invoice_type') ? document.getElementById('invoice_type').value : 'exclude';
+                const days = (b.duration_days || 0).toFixed(1);
+                const driverFee = b.driver_fee || 0;
+                const routeFee = b.route_fee || 0;
+                const addons = b.addons || 0;
+                const totalGross = b.total_gross !== undefined ? b.total_gross : (b.total_bill || 0);
+                const baseRent = totalGross - driverFee - routeFee - addons;
+                const discountAmount = b.discount_amount || 0;
+                const dpAmount = b.dp_amount || 0;
+                const remainingBalance = b.remaining_balance !== undefined ? b.remaining_balance : (b.total_bill || 0);
+                const destText = b.trip_destination ? ` (${b.trip_destination})` : '';
 
-                        let rows = '';
+                let rows = '';
 
-                        if (invType === 'include') {
-                            rows += `
+                if (invType === 'include') {
+                    rows += `
                                 <tr>
                                     <td>Sewa Kendaraan + Driver + BBM/Tol + Area${destText}</td>
                                     <td style="text-align:right; font-weight:500;">${ui.formatCurrency(totalGross)}</td>
                                 </tr>
                             `;
-                        } else {
-                            rows += `
+                } else {
+                    rows += `
                                 <tr>
                                     <td>Base Rent (${days} Hari)</td>
                                     <td style="text-align:right; font-weight:500;">${ui.formatCurrency(baseRent)}</td>
                                 </tr>
                             `;
-                            if(driverFee > 0) {
-                                rows += `<tr><td>Driver Fee (${days} Hari)</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(driverFee)}</td></tr>`;
-                            }
-                            if(routeFee > 0 || b.trip_destination) {
-                                rows += `<tr><td>Route Area Fee${destText}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(routeFee)}</td></tr>`;
-                            }
-                            if(b.addons_list && b.addons_list.length > 0) {
-                                rows += b.addons_list.map(a => `<tr><td>Addon: ${a.desc}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(a.cost)}</td></tr>`).join('');
-                            } else if(addons > 0) {
-                                rows += `<tr><td>Addons: ${b.addons_desc || 'Extras'}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(addons)}</td></tr>`;
-                            }
-                        }
+                    if (driverFee > 0) {
+                        rows += `<tr><td>Driver Fee (${days} Hari)</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(driverFee)}</td></tr>`;
+                    }
+                    if (routeFee > 0 || b.trip_destination) {
+                        rows += `<tr><td>Route Area Fee${destText}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(routeFee)}</td></tr>`;
+                    }
+                    if (b.addons_list && b.addons_list.length > 0) {
+                        rows += b.addons_list.map(a => `<tr><td>Addon: ${a.desc}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(a.cost)}</td></tr>`).join('');
+                    } else if (addons > 0) {
+                        rows += `<tr><td>Addons: ${b.addons_desc || 'Extras'}</td><td style="text-align:right; font-weight:500;">${ui.formatCurrency(addons)}</td></tr>`;
+                    }
+                }
 
-                        if (discountAmount > 0) {
-                            rows += `<tr><td style="color:#0f766e; text-align:right; padding-right:20px; font-weight:600;">Sub-Total</td><td style="text-align:right; font-weight:600;">${ui.formatCurrency(totalGross)}</td></tr>`;
-                            rows += `<tr style="background:#fef2f2;"><td style="color:#dc2626;">Diskon</td><td style="text-align:right; font-weight:600; color:#dc2626;">(${ui.formatCurrency(discountAmount)})</td></tr>`;
-                        }
+                if (discountAmount > 0) {
+                    rows += `<tr><td style="color:#0f766e; text-align:right; padding-right:20px; font-weight:600;">Sub-Total</td><td style="text-align:right; font-weight:600;">${ui.formatCurrency(totalGross)}</td></tr>`;
+                    rows += `<tr style="background:#fef2f2;"><td style="color:#dc2626;">Diskon</td><td style="text-align:right; font-weight:600; color:#dc2626;">(${ui.formatCurrency(discountAmount)})</td></tr>`;
+                }
 
-                        rows += `
+                rows += `
                             <tr class="total">
                                 <td style="text-align:right; padding-right:20px; text-transform:uppercase; font-size:14px;">Total Tagihan</td>
                                 <td style="text-align:right;">${ui.formatCurrency(b.total_bill || 0)}</td>
                             </tr>
                         `;
 
-                        if (dpAmount > 0) {
-                            rows += `<tr style="background:#f0fdfa;"><td style="text-align:right; padding-right:20px; font-weight:600; color:#0d9488;">Lunas DP</td><td style="text-align:right; font-weight:600; color:#0d9488;">(${ui.formatCurrency(dpAmount)})</td></tr>`;
-                        }
-                        
-                        // Always show remaining balance if there's any action
-                        if (remainingBalance >= 0) {
-                            rows += `<tr><td style="text-align:right; padding-right:20px; font-weight:bold; color:#0f766e; font-size:16px;">Sisa Tagihan</td><td style="text-align:right; font-weight:bold; color:#0f766e; font-size:18px;">${ui.formatCurrency(remainingBalance)}</td></tr>`;
-                        }
+                if (dpAmount > 0) {
+                    rows += `<tr style="background:#f0fdfa;"><td style="text-align:right; padding-right:20px; font-weight:600; color:#0d9488;">Lunas DP</td><td style="text-align:right; font-weight:600; color:#0d9488;">(${ui.formatCurrency(dpAmount)})</td></tr>`;
+                }
 
-                        return rows;
-                    })()}
+                // Always show remaining balance if there's any action
+                if (remainingBalance >= 0) {
+                    rows += `<tr><td style="text-align:right; padding-right:20px; font-weight:bold; color:#0f766e; font-size:16px;">Sisa Tagihan</td><td style="text-align:right; font-weight:bold; color:#0f766e; font-size:18px;">${ui.formatCurrency(remainingBalance)}</td></tr>`;
+                }
+
+                return rows;
+            })()}
                 </table>
                 
                 <div style="margin-top: 40px; padding: 24px; background: #e0f2fe; border-left: 6px solid #0284c7; border-radius:8px;">
@@ -1214,7 +1224,7 @@ const invoiceGenerator = {
                 </div>
             </div>
         `;
-        
+
         appState.currentInvoiceCustomer = b.customer_name.replace(/\s+/g, '-');
         appState.currentInvoiceId = b.id;
         document.getElementById('invoiceTemplatePopup').innerHTML = invHtml;
@@ -1223,7 +1233,7 @@ const invoiceGenerator = {
     _generatePDFBlob() {
         return new Promise((resolve) => {
             const b = appState.bookings.find(x => x.id === appState.currentInvoiceId);
-            if(!b) return resolve(null);
+            if (!b) return resolve(null);
 
             const cust = appState.currentInvoiceCustomer || 'Guest';
             const cName = localStorage.getItem('settings_company') || 'L37 Trans';
@@ -1241,12 +1251,12 @@ const invoiceGenerator = {
             doc.setFontSize(24);
             doc.setTextColor(15, 118, 110);
             doc.text(cName, 20, 25);
-            
+
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
             doc.setTextColor(100, 116, 139);
             doc.text(tagline, 20, 31);
-            
+
             doc.setFontSize(9);
             doc.setTextColor(71, 85, 105);
             doc.text(`Phone/WA: ${phone}`, 20, 37);
@@ -1257,11 +1267,11 @@ const invoiceGenerator = {
             doc.setFontSize(22);
             doc.setTextColor(203, 213, 225);
             doc.text("INVOICE", 190, 25, { align: 'right' });
-            
+
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
             doc.setTextColor(71, 85, 105);
-            doc.text(`ID: #${b.id.substring(0,8).toUpperCase()}`, 190, 31, { align: 'right' });
+            doc.text(`ID: #${b.id.substring(0, 8).toUpperCase()}`, 190, 31, { align: 'right' });
             doc.text(`Date: ${new Date().toLocaleDateString('id-ID')}`, 190, 36, { align: 'right' });
 
             // Line Separator
@@ -1313,12 +1323,12 @@ const invoiceGenerator = {
                 tableData.push([`Sewa Kendaraan + Driver + BBM/Tol + Area${destText}`, ui.formatCurrency(b.total_bill)]);
             } else {
                 tableData.push([`Base Rent (${days} Days)`, ui.formatCurrency(baseRent)]);
-                if(driverFee > 0) tableData.push([`Driver Fee (${days} Days)`, ui.formatCurrency(driverFee)]);
-                if(routeFee > 0 || b.trip_destination) tableData.push([`Route Area Fee${destText}`, ui.formatCurrency(routeFee)]);
-                
-                if(b.addons_list && b.addons_list.length > 0) {
+                if (driverFee > 0) tableData.push([`Driver Fee (${days} Days)`, ui.formatCurrency(driverFee)]);
+                if (routeFee > 0 || b.trip_destination) tableData.push([`Route Area Fee${destText}`, ui.formatCurrency(routeFee)]);
+
+                if (b.addons_list && b.addons_list.length > 0) {
                     b.addons_list.forEach(a => tableData.push([`Addon: ${a.desc}`, ui.formatCurrency(a.cost)]));
-                } else if(addons > 0) {
+                } else if (addons > 0) {
                     tableData.push([`Addons: ${b.addons_desc || 'Extras'}`, ui.formatCurrency(addons)]);
                 }
             }
@@ -1344,12 +1354,12 @@ const invoiceGenerator = {
             doc.setFillColor(241, 245, 249);
             doc.setDrawColor(203, 213, 225);
             doc.rect(20, finalY, 170, 12, 'FD');
-            
+
             doc.setFontSize(10);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(30, 41, 59);
             doc.text("GRAND TOTAL", 130, finalY + 8, { align: 'right' });
-            
+
             doc.setTextColor(15, 118, 110);
             doc.setFontSize(12);
             doc.text(ui.formatCurrency(b.total_bill), 185, finalY + 8, { align: 'right' });
@@ -1358,18 +1368,18 @@ const invoiceGenerator = {
             doc.setFillColor(224, 242, 254);
             doc.setDrawColor(2, 132, 199);
             doc.setLineWidth(1.5);
-            
+
             const bankLines = doc.splitTextToSize(bank, 155);
             const pboxY = finalY + 20;
             const pboxHeight = 16 + (bankLines.length * 5);
-            
+
             doc.rect(20, pboxY, 170, pboxHeight, 'F');
             doc.line(20, pboxY, 20, pboxY + pboxHeight); // left blue strip
-            
+
             doc.setFontSize(10);
             doc.setTextColor(3, 105, 161);
             doc.text("Payment Instructions", 26, pboxY + 7);
-            
+
             doc.setFontSize(9);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(15, 23, 42);
@@ -1398,12 +1408,12 @@ const invoiceGenerator = {
     },
     shareWhatsApp() {
         const id = appState.currentInvoiceId;
-        if(!id) return;
+        if (!id) return;
         const b = appState.bookings.find(x => x.id === id);
-        if(!b) return;
-        
-        let message = `*INVOICE L37 TRANS*\nID: #${b.id.substring(0,8).toUpperCase()}\nCustomer: ${b.customer_name}\nUnit: ${b.vehicle_name}\nPeriode: ${new Date(b.start_date).toLocaleDateString('id-ID')} s/d ${new Date(b.end_date).toLocaleDateString('id-ID')}\n\n*Total Tagihan: ${ui.formatCurrency(b.total_bill)}*\n\nTerima kasih telah menggunakan layanan kami.`;
-        
+        if (!b) return;
+
+        let message = `*INVOICE L37 TRANS*\nID: #${b.id.substring(0, 8).toUpperCase()}\nCustomer: ${b.customer_name}\nUnit: ${b.vehicle_name}\nPeriode: ${new Date(b.start_date).toLocaleDateString('id-ID')} s/d ${new Date(b.end_date).toLocaleDateString('id-ID')}\n\n*Total Tagihan: ${ui.formatCurrency(b.total_bill)}*\n\nTerima kasih telah menggunakan layanan kami.`;
+
         Swal.fire({ title: 'Preparing PDF...', text: 'Please wait...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         this._generatePDFBlob().then(async ({ blob, filename }) => {
             Swal.close();
@@ -1437,7 +1447,7 @@ const invoiceGenerator = {
                     a.download = filename;
                     a.click();
                     URL.revokeObjectURL(url);
-                    
+
                     // Open WA Web Text
                     const waLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
                     window.open(waLink, '_blank');
@@ -1450,7 +1460,7 @@ const invoiceGenerator = {
 // === FULLCALENDAR ===
 function initCalendar() {
     const calendarEl = document.getElementById('calendar');
-    
+
     // Map bookings to events
     const events = appState.bookings.map(b => ({
         title: `${b.vehicle_name} (${b.customer_name})`,
@@ -1461,7 +1471,7 @@ function initCalendar() {
         textColor: '#05AD98'
     }));
 
-    if(appState.calendar) {
+    if (appState.calendar) {
         appState.calendar.destroy();
     }
 
@@ -1478,7 +1488,7 @@ function initCalendar() {
             right: 'dayGridMonth,timeGridWeek,timeGridDay'
         },
         events: events,
-        eventClick: function(info) {
+        eventClick: function (info) {
             Swal.fire({
                 title: info.event.title,
                 text: `Booked until: ${info.event.end ? info.event.end.toLocaleString() : info.event.start.toLocaleString()}`,
@@ -1486,10 +1496,10 @@ function initCalendar() {
             });
         }
     });
-    
+
     // if active, render now
-    if(document.getElementById('calendar-section').classList.contains('active')){
-         appState.calendar.render();
+    if (document.getElementById('calendar-section').classList.contains('active')) {
+        appState.calendar.render();
     }
 }
 
@@ -1503,7 +1513,7 @@ window.appState = appState;
 
 appState.editVehicle = (id) => {
     const v = appState.vehicles.find(x => x.id === id);
-    if(v) {
+    if (v) {
         document.getElementById('v_id').value = v.id;
         document.getElementById('v_name').value = v.name;
         document.getElementById('v_plate').value = v.plate;
@@ -1516,7 +1526,7 @@ appState.editVehicle = (id) => {
 
 appState.editCustomer = (id) => {
     const c = appState.customers.find(x => x.id === id);
-    if(c) {
+    if (c) {
         document.getElementById('c_id').value = c.id;
         document.getElementById('c_name').value = c.name;
         document.getElementById('c_phone').value = c.phone;
@@ -1528,7 +1538,7 @@ appState.editCustomer = (id) => {
 
 appState.editBooking = (id) => {
     const b = appState.bookings.find(x => x.id === id);
-    if(b) {
+    if (b) {
         document.getElementById('b_id').value = b.id;
         document.getElementById('b_customer').value = b.customer_name;
         document.getElementById('b_vehicle').value = b.vehicle_id;
@@ -1537,11 +1547,11 @@ appState.editBooking = (id) => {
         document.getElementById('b_trip_destination').value = b.trip_destination || '';
         document.getElementById('b_custom_rent').value = b.custom_rent_price && b.custom_rent_price > 0 ? b.custom_rent_price.toLocaleString('id-ID') : '';
         document.getElementById('b_opcost').value = (b.opcost || 0).toLocaleString('id-ID');
-        
+
         // Rebuild Addons Container for Edit
         const container = document.getElementById('addons-container');
         container.innerHTML = '';
-        if(b.addons_list && b.addons_list.length > 0) {
+        if (b.addons_list && b.addons_list.length > 0) {
             b.addons_list.forEach(a => {
                 const modalStr = a.modal !== undefined ? a.modal.toLocaleString('id-ID') : '0';
                 container.innerHTML += `
@@ -1586,27 +1596,31 @@ appState.editBooking = (id) => {
 
         const routeSelect = document.getElementById('b_route');
         const rFeeToMatch = b.route_fee_per_day !== undefined ? b.route_fee_per_day : (b.route_fee || 0);
-        for(let i=0; i<routeSelect.options.length; i++) {
-            if(parseFloat(routeSelect.options[i].dataset.fee) === rFeeToMatch) {
+        for (let i = 0; i < routeSelect.options.length; i++) {
+            if (parseFloat(routeSelect.options[i].dataset.fee) === rFeeToMatch) {
                 routeSelect.selectedIndex = i; break;
             }
         }
-        
+
         document.getElementById('b_driver_fee').value = (b.driver_fee_per_day || 0).toLocaleString('id-ID');
         document.getElementById('b_payment_status').value = b.status_payment || 'pending';
-        
+
         if (document.getElementById('b_discount_type')) {
             document.getElementById('b_discount_type').value = b.discount_type || 'fixed';
             document.getElementById('b_discount_value').value = (b.discount_value || 0).toLocaleString('id-ID');
         }
-        ui.openModal('bookingModal');
+        if (document.getElementById('b_custom_total')) {
+            document.getElementById('b_custom_total').value = b.custom_total_bill && b.custom_total_bill > 0 ? b.custom_total_bill.toLocaleString('id-ID') : '';
+        }
+
         calculator.updateSplit(); // Trigger calculation updates
+        ui.openModal('bookingModal');
     }
 }
 
 appState.viewUnit = (id) => {
     const v = appState.vehicles.find(x => x.id === id);
-    if(!v) return;
+    if (!v) return;
 
     document.getElementById('ud_title').innerText = v.name;
     document.getElementById('ud_plate').innerText = v.plate;
@@ -1617,13 +1631,13 @@ appState.viewUnit = (id) => {
 
     const tbody = document.getElementById('ud_bookings_list');
     tbody.innerHTML = '';
-    
+
     let eventsData = [];
 
-    if(unitBookings.length === 0) {
+    if (unitBookings.length === 0) {
         tbody.innerHTML = `<tr><td colspan="3" style="padding:15px; text-align:center; color:var(--text-muted);">No booking history for this unit.</td></tr>`;
     } else {
-        unitBookings.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).forEach(b => {
+        unitBookings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).forEach(b => {
             const startDateStr = new Date(b.start_date).toLocaleDateString('id-ID');
             const endDateStr = new Date(b.end_date).toLocaleDateString('id-ID');
             eventsData.push({
@@ -1646,7 +1660,7 @@ appState.viewUnit = (id) => {
     ui.openModal('unitDetailModal');
 
     setTimeout(() => {
-        if(appState.unitCalendarInstance) {
+        if (appState.unitCalendarInstance) {
             appState.unitCalendarInstance.destroy();
         }
         const calEl = document.getElementById('ud_calendar');
@@ -1667,7 +1681,7 @@ appState.viewUnit = (id) => {
 // Main Init
 document.addEventListener('DOMContentLoaded', () => {
     ui.init();
-    if(sessionStorage.getItem('admin_unlocked') === 'true') {
+    if (sessionStorage.getItem('admin_unlocked') === 'true') {
         document.getElementById('pin-gate').style.display = 'none';
         firebaseLogic.loadDashboard();
     } // else pin-gate blocking dashboard loads
