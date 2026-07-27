@@ -1007,7 +1007,7 @@ const calculator = {
         const driverFeeTotal = driverFeePerDay * days;
 
         const baseBill = sellPrice * days;  // Base_Rent
-        const totalGross = baseBill + addonsSellTotal + routeFeeTotal + driverFeeTotal;
+        let totalGross = baseBill + addonsSellTotal + routeFeeTotal + driverFeeTotal;
 
         // Discount Logic
         const discountType = document.getElementById('b_discount_type') ? document.getElementById('b_discount_type').value : 'fixed';
